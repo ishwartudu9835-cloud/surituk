@@ -65,16 +65,20 @@ Is order me karo 👇
 4. Free plan 15 min idle ke baad so jaata hai (pehla request ~30 sec slow). Traffic aane pe $7/month Starter le lena.
 
 ## 8. Website — Cloudflare Pages (Git se, taaki har update auto deploy ho)
-1. Cloudflare → **Workers & Pages → Create → Pages → Connect to Git** → repo chuno.
+1. Cloudflare → **Workers & Pages → Create → Pages → Connect to Git** → GitHub → repo `surituk` → **Begin setup**.
 2. Settings:
+   - Production branch: `main`
+   - Framework preset: `None`
    - Build command: `pnpm install --frozen-lockfile && pnpm --filter @workspace/manga-platform run build`
    - Build output directory: `artifacts/manga-platform/dist/public`
    - Environment variables:
-     - `VITE_API_URL` = Render ka link
+     - `VITE_API_URL` = Render ka link (jaise `https://surituk-api.onrender.com`)
      - `NODE_VERSION` = `22`
-     - `NODE_ENV` = `production`
+     - `PNPM_VERSION` = `10.28.0`
+     - ⚠️ `NODE_ENV` **mat** daalna — usse build tools install nahi hote aur build fail hota hai.
      - (AdSense approve hone ke baad) `VITE_ADSENSE_CLIENT`, `VITE_ADSENSE_SLOT_BANNER`, `VITE_ADSENSE_SLOT_READER`
-3. Deploy. Custom domain (surituk.com) bhi yahin se jod sakte ho.
+3. **Save and Deploy**. Jo `.pages.dev` link mile, wo Render ke `FRONTEND_URL` me daalo.
+4. Custom domain (surituk.com) bhi yahin **Custom domains** se jod sakte ho.
 
 ## 9. Google AdSense
 1. Site live + kuch asli content hone ke baad adsense.google.com pe apply karo.
