@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Manga Platform"
+version = "1.0.0"
+id = "artifacts/manga-platform"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19485
+
+[services.development]
+run = "pnpm --filter @workspace/manga-platform run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/manga-platform", "run", "build" ]
+publicDir = "artifacts/manga-platform/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19485"
+BASE_PATH = "/"

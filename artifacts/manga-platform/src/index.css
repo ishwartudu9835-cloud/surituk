@@ -1,0 +1,221 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--card-border));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover-border: hsl(var(--popover-border));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-border: var(--primary-border);
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-secondary-border: var(--secondary-border);
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-muted-border: var(--muted-border);
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-accent-border: var(--accent-border);
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-destructive-border: var(--destructive-border);
+
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  --color-sidebar: hsl(var(--sidebar));
+  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+  --color-sidebar-border: hsl(var(--sidebar-border));
+  --color-sidebar-primary: hsl(var(--sidebar-primary));
+  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+  --color-sidebar-primary-border: var(--sidebar-primary-border);
+  --color-sidebar-accent: hsl(var(--sidebar-accent));
+  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+  --color-sidebar-accent-border: var(--sidebar-accent-border);
+  --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+  --font-sans: var(--app-font-sans);
+  --font-serif: var(--app-font-serif);
+  --font-mono: var(--app-font-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --button-outline: rgba(247,239,227, .10);
+  --badge-outline: rgba(247,239,227, .06);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(247,239,227, .04);
+  --elevate-2: rgba(247,239,227, .08);
+
+  --background: 20 12% 5%;
+  --foreground: 36 55% 93%;
+  --border: 24 12% 15%;
+  --card: 22 12% 8%;
+  --card-foreground: 36 55% 93%;
+  --card-border: 24 12% 15%;
+  --sidebar: 22 12% 7%;
+  --sidebar-foreground: 36 55% 93%;
+  --sidebar-border: 24 12% 15%;
+  --sidebar-primary: 358 80% 49%;
+  --sidebar-primary-foreground: 36 60% 97%;
+  --sidebar-accent: 24 12% 13%;
+  --sidebar-accent-foreground: 36 55% 93%;
+  --sidebar-ring: 358 80% 49%;
+  --popover: 22 12% 8%;
+  --popover-foreground: 36 55% 93%;
+  --popover-border: 24 12% 15%;
+
+  --primary: 358 80% 49%;
+  --primary-foreground: 36 60% 97%;
+  --secondary: 24 12% 13%;
+  --secondary-foreground: 36 55% 93%;
+  --muted: 24 12% 12%;
+  --muted-foreground: 30 12% 62%;
+  --accent: 38 78% 58%;
+  --accent-foreground: 20 12% 6%;
+  --destructive: 0 70% 40%;
+  --destructive-foreground: 36 60% 97%;
+
+  --input: 24 12% 15%;
+  --ring: 358 80% 49%;
+  --chart-1: 358 80% 52%;
+  --chart-2: 38 78% 58%;
+  --chart-3: 36 40% 80%;
+  --chart-4: 14 70% 45%;
+  --chart-5: 30 12% 45%;
+
+  --app-font-sans: 'Manrope', 'Noto Sans Devanagari', system-ui, sans-serif;
+  --app-font-serif: 'Playfair Display', Georgia, serif;
+  --app-font-mono: 'JetBrains Mono', Menlo, monospace;
+  --radius: .625rem;
+
+  /* Surituk brand tokens */
+  --brand-red: #E1191F;
+  --brand-cream: #F7EFE3;
+  --brand-ink: #0F0D0C;
+}
+
+.dark {
+  --button-outline: rgba(247,239,227, .10);
+  --badge-outline: rgba(247,239,227, .06);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(247,239,227, .04);
+  --elevate-2: rgba(247,239,227, .08);
+
+  --background: 20 12% 5%;
+  --foreground: 36 55% 93%;
+  --border: 24 12% 15%;
+  --card: 22 12% 8%;
+  --card-foreground: 36 55% 93%;
+  --card-border: 24 12% 15%;
+  --sidebar: 22 12% 7%;
+  --sidebar-foreground: 36 55% 93%;
+  --sidebar-border: 24 12% 15%;
+  --sidebar-primary: 358 80% 49%;
+  --sidebar-primary-foreground: 36 60% 97%;
+  --sidebar-accent: 24 12% 13%;
+  --sidebar-accent-foreground: 36 55% 93%;
+  --sidebar-ring: 358 80% 49%;
+  --popover: 22 12% 8%;
+  --popover-foreground: 36 55% 93%;
+  --popover-border: 24 12% 15%;
+
+  --primary: 358 80% 49%;
+  --primary-foreground: 36 60% 97%;
+  --secondary: 24 12% 13%;
+  --secondary-foreground: 36 55% 93%;
+  --muted: 24 12% 12%;
+  --muted-foreground: 30 12% 62%;
+  --accent: 38 78% 58%;
+  --accent-foreground: 20 12% 6%;
+  --destructive: 0 70% 40%;
+  --destructive-foreground: 36 60% 97%;
+
+  --input: 24 12% 15%;
+  --ring: 358 80% 49%;
+  --chart-1: 358 80% 52%;
+  --chart-2: 38 78% 58%;
+  --chart-3: 36 40% 80%;
+  --chart-4: 14 70% 45%;
+  --chart-5: 30 12% 45%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    background-image:
+      radial-gradient(1200px 600px at 85% -10%, hsl(358 80% 49% / .10), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, hsl(38 78% 58% / .05), transparent 60%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, .font-display {
+    font-family: var(--app-font-serif);
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: hsl(358 80% 49% / .35);
+    color: var(--brand-cream);
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(24 12% 18%); border-radius: 999px; border: 2px solid hsl(20 12% 5%); }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(358 60% 35%); }
+}
+
+@layer utilities {
+  /* manga-style halftone dots */
+  .halftone {
+    background-image: radial-gradient(hsl(36 55% 93% / .07) 1px, transparent 1.2px);
+    background-size: 7px 7px;
+  }
+  /* brush underline under section headings */
+  .brush-underline {
+    position: relative;
+  }
+  .brush-underline::after {
+    content: "";
+    position: absolute; left: 0; bottom: -6px;
+    width: 2.5rem; height: 3px; border-radius: 999px;
+    background: linear-gradient(90deg, var(--brand-red), transparent);
+  }
+}
+
+/* Tailwind v4 container doesn't center by default */
+@utility container {
+  width: 100%;
+  margin-inline: auto;
+  max-width: 1320px;
+}
