@@ -18,8 +18,11 @@ Is order me karo 👇
 2. Is zip ka saara code usme upload/push karo.
 
 ## 2. Database — Neon
-1. neon.tech → Sign up → **New Project** (region: Singapore/Mumbai).
-2. **Connection string** copy karo (`postgres://...sslmode=require`). Ye `DATABASE_URL` hai.
+1. neon.tech → Sign up → **New Project** (region: AWS Asia Pacific – Singapore, India ke sabse paas).
+2. **Connection string** copy karo (`postgres://...sslmode=require`). Ye `DATABASE_URL` hai. Kisi ko share mat karna.
+3. Tables banane ke liye (computer pe kuch install kiye bina):
+   Neon Console → **SQL Editor** → repo ki `db/schema.sql` file ka poora content paste karo → **Run**.
+4. (Optional) Demo manga/creators chahiye to `db/demo-data.sql` bhi paste karke Run karo. Isme Store ke books nahi hain — wo creators khud daalenge.
 
 ## 3. Files — Cloudflare R2
 1. Cloudflare Dashboard → **R2** → 2 buckets banao: `surituk-public` aur `surituk-private`.
@@ -51,7 +54,7 @@ Is order me karo 👇
    - `FRONTEND_URL` = apni Cloudflare website ka link
    - `API_PUBLIC_URL` = Render ka link (jaise `https://surituk-api.onrender.com`)
    - `ADMIN_EMAILS` = apna email (Admin panel milega)
-3. Deploy hone ke baad apne computer se ek baar tables banao:
+3. Tables Neon ke SQL Editor se ban chuke hain (step 2). Ya computer se bhi bana sakte ho:
    ```bash
    pnpm install
    DATABASE_URL="neon-wala-string" pnpm --filter @workspace/db run push
