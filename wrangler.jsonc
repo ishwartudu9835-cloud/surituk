@@ -1,0 +1,10 @@
+// Cloudflare Workers (static site) config for the Surituk website.
+// The API runs separately on Render; set VITE_API_URL as a build variable.
+{
+  "name": "surituk",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./artifacts/manga-platform/dist/public",
+    "not_found_handling": "single-page-application"
+  }
+}
