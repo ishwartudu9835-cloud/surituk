@@ -16,6 +16,11 @@ export const config = {
   commissionPercent: Number(env.COMMISSION_PERCENT ?? 20),
   minPayoutPaise: Number(env.MIN_PAYOUT_RUPEES ?? 500) * 100,
 
+  /** Brevo HTTP email API (works on hosts that block SMTP ports, e.g. Render free). */
+  brevoApiKey: env.BREVO_API_KEY ?? "",
+  mailFromEmail: env.MAIL_FROM_EMAIL ?? env.SMTP_USER ?? "",
+  mailFromName: env.MAIL_FROM_NAME ?? "Surituk",
+
   smtp: {
     host: env.SMTP_HOST ?? "",
     port: Number(env.SMTP_PORT ?? 465),

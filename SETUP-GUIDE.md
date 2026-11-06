@@ -30,7 +30,15 @@ Is order me karo 👇
 3. `surituk-private` ko **public mat karna** — isme bechi hui books ki PDF rahengi.
 4. R2 → **Manage API tokens → Create token** (Object Read & Write). Access Key ID, Secret, aur endpoint (`https://<account-id>.r2.cloudflarestorage.com`) copy karo.
 
-## 4. Email OTP — Gmail
+## 4. Email OTP — Brevo (Render free pe yahi chalega)
+Render ka free plan SMTP ports block karta hai, isliye Gmail SMTP wahan kaam nahi karta. Brevo HTTPS se email bhejta hai:
+1. brevo.com → free account banao.
+2. **Senders, Domains & Dedicated IPs → Senders → Add a sender** → apna Gmail daalo → email me aaya link dabake verify karo.
+3. **SMTP & API → API Keys → Generate a new API key** → copy karo.
+4. Render me `BREVO_API_KEY` = wo key, `MAIL_FROM_EMAIL` = verified Gmail.
+5. Baad me apna domain (surituk.com) Brevo me verify karoge to emails spam me kam jayengi.
+
+### (Option B) Email OTP — Gmail SMTP (sirf paid Render / VPS pe)
 1. Jis Gmail se OTP bhejna hai, uspe **2-Step Verification** on karo.
 2. myaccount.google.com/apppasswords → app password banao (16 letters). Ye `SMTP_PASS` hai, Gmail address `SMTP_USER`.
 3. Gmail din me ~500 email tak bhejta hai. Zyada users ho jaayein to Brevo / Resend ka SMTP use karo (sirf SMTP_HOST/USER/PASS badlenge).

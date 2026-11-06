@@ -2,23 +2,57 @@ import nodemailer from "nodemailer";
 import { config } from "./config";
 import { logger } from "./logger";
 
-const transporter = config.smtp.host && config.smtp.user
+/**
+ * Email sending. Preference order:
+ *  1. Brevo HTTP API (BREVO_API_KEY) — uses HTTPS, so it works on Render's free plan,
+ *     which blocks SMTP ports 25/465/587.
+ *  2. SMTP (SMTP_HOST/SMTP_USER/SMTP_PASS) — e.g. Gmail app password, on hosts that allow it.
+ *  3. Nothing configured — the message is only logged (local development).
+ */
+const transporter = !config.brevoApiKey && config.smtp.host && config.smtp.user
   ? nodemailer.createTransport({
       host: config.smtp.host,
       port: config.smtp.port,
       secure: config.smtp.port === 465,
       auth: { user: config.smtp.user, pass: config.smtp.pass },
+      // Fail fast instead of hanging the login button for minutes.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 15_000,
     })
   : null;
 
-export const mailEnabled = Boolean(transporter);
+export const mailEnabled = Boolean(config.brevoApiKey || transporter);
+
+async function sendViaBrevo(to: string, subject: string, html: string, text: string) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15_000);
+  try {
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { "api-key": config.brevoApiKey, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        sender: { name: config.mailFromName, email: config.mailFromEmail },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error(`Brevo ${res.status}: ${await res.text()}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export async function sendMail(to: string, subject: string, html: string, text: string) {
-  if (!transporter) {
-    logger.warn({ to, subject }, `[mail disabled] ${text}`);
+  if (config.brevoApiKey) return sendViaBrevo(to, subject, html, text);
+  if (transporter) {
+    await transporter.sendMail({ from: config.smtp.from, to, subject, html, text });
     return;
   }
-  await transporter.sendMail({ from: config.smtp.from, to, subject, html, text });
+  logger.warn({ to, subject }, `[mail disabled] ${text}`);
 }
 
 export async function sendOtpEmail(to: string, code: string) {
