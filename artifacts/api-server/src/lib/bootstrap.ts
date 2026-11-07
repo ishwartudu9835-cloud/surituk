@@ -22,17 +22,117 @@ const DEFAULT_GENRES = [
  * on an existing database without running SQL by hand.
  */
 export async function runMigrations() {
-  try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS creator_subscriptions (
-        id serial PRIMARY KEY,
-        user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        creator_id integer NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
-        created_at timestamptz NOT NULL DEFAULT now()
-      )`);
-    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS creator_subscriptions_user_creator_idx ON creator_subscriptions (user_id, creator_id)`);
-  } catch (err) {
-    logger.error({ err }, "Startup migration failed");
+  const steps: string[] = [
+    // --- subscriptions ---
+    `CREATE TABLE IF NOT EXISTS creator_subscriptions (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      creator_id integer NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
+      created_at timestamptz NOT NULL DEFAULT now())`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS creator_subscriptions_user_creator_idx ON creator_subscriptions (user_id, creator_id)`,
+    // --- users ---
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_adult boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS favorite_genres text[] NOT NULL DEFAULT '{}'`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS ui_language text NOT NULL DEFAULT 'en'`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by integer`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS last_ip text`,
+    // --- creators ---
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS youtube_url text`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS type text NOT NULL DEFAULT 'individual'`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'approved'`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS city text`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS state text`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS is_registered_studio boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS referral_code text`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS owner_user_id integer`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS creators_referral_code_unique ON creators (referral_code)`,
+    // --- manga ---
+    `ALTER TABLE manga ADD COLUMN IF NOT EXISTS is_published boolean NOT NULL DEFAULT true`,
+    `ALTER TABLE manga ADD COLUMN IF NOT EXISTS is_mature boolean NOT NULL DEFAULT false`,
+    // --- reading history ---
+    `ALTER TABLE reading_history ALTER COLUMN last_chapter TYPE real`,
+    `ALTER TABLE reading_history ADD COLUMN IF NOT EXISTS last_chapter_id integer`,
+    `ALTER TABLE reading_history ADD COLUMN IF NOT EXISTS last_page integer NOT NULL DEFAULT 0`,
+    // --- creator program ---
+    `CREATE TABLE IF NOT EXISTS creator_applications (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      creator_id integer,
+      type text NOT NULL,
+      status text NOT NULL DEFAULT 'pending',
+      legal_name text NOT NULL,
+      pen_name text NOT NULL,
+      email text NOT NULL,
+      mobile text NOT NULL,
+      mobile_verified boolean NOT NULL DEFAULT false,
+      city text NOT NULL,
+      state text NOT NULL,
+      portfolio_url text,
+      sample_images text[] NOT NULL DEFAULT '{}',
+      social_links jsonb NOT NULL DEFAULT '{}'::jsonb,
+      verification_code text NOT NULL,
+      code_verified boolean NOT NULL DEFAULT false,
+      original_work_accepted boolean NOT NULL DEFAULT false,
+      studio_name text,
+      studio_description text,
+      studio_logo text,
+      studio_banner text,
+      website text,
+      udyam_number text,
+      gst_number text,
+      team_members jsonb NOT NULL DEFAULT '[]'::jsonb,
+      review_note text,
+      reviewed_by integer,
+      reviewed_at timestamptz,
+      invite_token text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now())`,
+    `CREATE TABLE IF NOT EXISTS team_members (
+      id serial PRIMARY KEY,
+      creator_id integer NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
+      user_id integer,
+      name text NOT NULL,
+      email text NOT NULL,
+      role text NOT NULL,
+      status text NOT NULL DEFAULT 'invited',
+      invite_token text,
+      created_at timestamptz NOT NULL DEFAULT now())`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS team_members_invite_token_unique ON team_members (invite_token)`,
+    `CREATE TABLE IF NOT EXISTS creator_invites (
+      token text PRIMARY KEY,
+      created_by integer NOT NULL,
+      note text,
+      uses_left integer NOT NULL DEFAULT 1,
+      expires_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now())`,
+    `CREATE TABLE IF NOT EXISTS app_settings (
+      key text PRIMARY KEY,
+      value text NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now())`,
+    `CREATE TABLE IF NOT EXISTS views_daily (
+      id serial PRIMARY KEY,
+      day date NOT NULL,
+      creator_id integer NOT NULL,
+      manga_id integer NOT NULL,
+      chapter_id integer NOT NULL,
+      count integer NOT NULL DEFAULT 0)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS views_daily_day_chapter_idx ON views_daily (day, chapter_id)`,
+    `CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id serial PRIMARY KEY,
+      admin_user_id integer NOT NULL,
+      action text NOT NULL,
+      target_type text,
+      target_id integer,
+      details jsonb,
+      created_at timestamptz NOT NULL DEFAULT now())`,
+  ];
+  for (const step of steps) {
+    try {
+      await db.execute(sql.raw(step));
+    } catch (err) {
+      logger.error({ err, step: step.slice(0, 80) }, "Startup migration step failed");
+    }
   }
 }
 

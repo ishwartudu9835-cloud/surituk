@@ -43,7 +43,7 @@ async function uniqueUsername(base: string) {
   return `${clean}${Date.now()}`;
 }
 
-async function findOrCreateUser(email: string, extra: { name?: string; picture?: string; googleId?: string } = {}) {
+async function findOrCreateUser(email: string, extra: { name?: string; picture?: string; googleId?: string; ref?: string; ip?: string } = {}) {
   email = email.toLowerCase();
   const isAdmin = config.adminEmails.includes(email);
 
@@ -57,11 +57,17 @@ async function findOrCreateUser(email: string, extra: { name?: string; picture?:
     if (extra.googleId && !user.googleId) patch.googleId = extra.googleId;
     if (extra.picture && user.avatar.startsWith("data:")) patch.avatar = extra.picture;
     if (isAdmin && user.role !== "admin") patch.role = "admin";
+    if (extra.ip && extra.ip !== user.lastIp) patch.lastIp = extra.ip;
     if (Object.keys(patch).length) [user] = await db.update(usersTable).set(patch).where(eq(usersTable.id, user.id)).returning();
     return user;
   }
 
   const displayName = extra.name || email.split("@")[0];
+  let referredBy: number | null = null;
+  if (extra.ref) {
+    const [c] = await db.select({ id: creatorsTable.id }).from(creatorsTable).where(and(eq(creatorsTable.referralCode, extra.ref.slice(0, 40)), eq(creatorsTable.status, "approved")));
+    referredBy = c?.id ?? null;
+  }
   [user] = await db.insert(usersTable).values({
     email,
     googleId: extra.googleId ?? null,
@@ -69,6 +75,8 @@ async function findOrCreateUser(email: string, extra: { name?: string; picture?:
     displayName,
     avatar: extra.picture || initialsAvatar(displayName),
     role: isAdmin ? "admin" : "reader",
+    referredBy,
+    lastIp: extra.ip ?? null,
   }).returning();
   return user;
 }
@@ -79,7 +87,7 @@ router.post("/auth/otp/request", async (req, res): Promise<void> => {
   const email = String(req.body?.email ?? "").trim().toLowerCase();
   if (!EMAIL_RE.test(email)) { res.status(400).json({ error: "Please enter a valid email address" }); return; }
   if (!mailEnabled && isProd) { res.status(503).json({ error: "Email login is not set up yet. Please use Google login." }); return; }
-  if (tooMany(`otp-ip:${ipOf(req)}`, 10, 10 * 60 * 1000)) { res.status(429).json({ error: "Too many requests. Try again in a few minutes." }); return; }
+  if (tooMany(`otp-ip:${ipOf(req)}`, Number(process.env.OTP_IP_LIMIT ?? 10), 10 * 60 * 1000)) { res.status(429).json({ error: "Too many requests. Try again in a few minutes." }); return; }
 
   const [last] = await db.select().from(otpCodesTable).where(eq(otpCodesTable.email, email)).orderBy(desc(otpCodesTable.createdAt)).limit(1);
   if (last && Date.now() - last.createdAt.getTime() < OTP_RESEND_MS) {
@@ -122,7 +130,7 @@ router.post("/auth/otp/verify", async (req, res): Promise<void> => {
   }
   await db.update(otpCodesTable).set({ consumedAt: new Date() }).where(eq(otpCodesTable.id, otp.id));
 
-  const user = await findOrCreateUser(email);
+  const user = await findOrCreateUser(email, { ref: typeof req.body?.ref === "string" ? req.body.ref : undefined, ip: ipOf(req) });
   res.json({ token: createSessionToken(user.id), user: publicUser(user) });
 });
 
@@ -144,7 +152,7 @@ router.post("/auth/google", async (req, res): Promise<void> => {
     return;
   }
 
-  const user = await findOrCreateUser(info.email, { name: info.name, picture: info.picture, googleId: info.sub });
+  const user = await findOrCreateUser(info.email, { name: info.name, picture: info.picture, googleId: info.sub, ref: typeof req.body?.ref === "string" ? req.body.ref : undefined, ip: ipOf(req) });
   res.json({ token: createSessionToken(user.id), user: publicUser(user) });
 });
 
@@ -159,7 +167,11 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   const [creator] = u.creatorId ? await db.select().from(creatorsTable).where(eq(creatorsTable.id, u.creatorId)) : [];
   res.json({
     ...publicUser(u),
-    creator: creator ? { id: creator.id, name: creator.name, studioName: creator.studioName, bio: creator.bio, avatar: creator.avatar, banner: creator.banner, upiId: creator.upiId, payoutName: creator.payoutName } : null,
+    creator: creator ? {
+      id: creator.id, name: creator.name, type: creator.type, status: creator.status, studioName: creator.studioName, bio: creator.bio,
+      avatar: creator.avatar, banner: creator.banner, city: creator.city, state: creator.state, isVerified: creator.isVerified,
+      instagramUrl: creator.instagramUrl, twitterUrl: creator.twitterUrl, youtubeUrl: creator.youtubeUrl, websiteUrl: creator.websiteUrl,
+    } : null,
   });
 });
 
@@ -172,31 +184,33 @@ router.patch("/auth/me", requireAuth, async (req, res): Promise<void> => {
   res.json(publicUser(u));
 });
 
-/** Turn the logged-in reader into a creator (or update creator/payout details). */
+/** Update my creator / studio profile. Becoming a creator happens only through the application (routes/pro.ts). */
 router.post("/creators/me", requireAuth, async (req, res): Promise<void> => {
   const u = req.user!;
-  const name = String(req.body?.name ?? "").trim().slice(0, 60);
-  const studioName = String(req.body?.studioName ?? "").trim().slice(0, 60) || null;
-  const bio = String(req.body?.bio ?? "").trim().slice(0, 500) || null;
-  const upiId = String(req.body?.upiId ?? "").trim().slice(0, 80) || null;
-  const payoutName = String(req.body?.payoutName ?? "").trim().slice(0, 80) || null;
-  if (upiId && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upiId)) { res.status(400).json({ error: "UPI ID looks invalid (example: name@okaxis)" }); return; }
-  const imageUrl = (v: unknown) => (typeof v === "string" && /^https?:\/\//.test(v) ? v.slice(0, 500) : undefined);
-  const avatar = imageUrl(req.body?.avatar);
-  const banner = req.body?.banner === "" ? null : imageUrl(req.body?.banner);
-
-  if (u.creatorId) {
-    const [c] = await db.update(creatorsTable)
-      .set({ ...(name ? { name } : {}), studioName, bio, upiId, payoutName, ...(avatar ? { avatar } : {}), ...(banner !== undefined ? { banner } : {}) })
-      .where(eq(creatorsTable.id, u.creatorId)).returning();
-    res.json(c);
-    return;
+  if (!u.creatorId) { res.status(400).json({ error: "Apply for a Professional Account in Settings first" }); return; }
+  const b = req.body ?? {};
+  const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : undefined);
+  const url = (v: unknown) => (v === "" ? null : typeof v === "string" && /^https?:\/\//.test(v.trim()) ? v.trim().slice(0, 500) : undefined);
+  const patch: Partial<typeof creatorsTable.$inferInsert> = {};
+  const name = str(b.name, 60);
+  if (name !== undefined) { if (name.length < 2) { res.status(400).json({ error: "Name is too short" }); return; } patch.name = name; }
+  for (const [key, max] of [["studioName", 60], ["bio", 1500], ["city", 60], ["state", 60]] as const) {
+    const v = str(b[key], max); if (v !== undefined) (patch as Record<string, unknown>)[key] = v || null;
   }
-
-  if (!name) { res.status(400).json({ error: "Creator name is required" }); return; }
-  const [c] = await db.insert(creatorsTable).values({ name, studioName, bio, upiId, payoutName, avatar: avatar ?? u.avatar, banner: banner ?? null }).returning();
-  await db.update(usersTable).set({ creatorId: c.id, role: u.role === "admin" ? "admin" : "creator" }).where(eq(usersTable.id, u.id));
-  res.status(201).json(c);
+  for (const [key, col] of [["avatar", "avatar"], ["banner", "banner"], ["instagramUrl", "instagramUrl"], ["twitterUrl", "twitterUrl"], ["youtubeUrl", "youtubeUrl"], ["websiteUrl", "websiteUrl"]] as const) {
+    const v = url(b[key]);
+    if (v === undefined) continue;
+    if (key === "avatar" && v === null) continue; // avatar can't be empty
+    (patch as Record<string, unknown>)[col] = v;
+  }
+  const upi = str(b.upiId, 80);
+  if (upi !== undefined) {
+    if (upi && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upi)) { res.status(400).json({ error: "UPI ID looks invalid (example: name@okaxis)" }); return; }
+    patch.upiId = upi || null;
+  }
+  const payoutName = str(b.payoutName, 80); if (payoutName !== undefined) patch.payoutName = payoutName || null;
+  const [c] = await db.update(creatorsTable).set(patch).where(eq(creatorsTable.id, u.creatorId)).returning();
+  res.json(c);
 });
 
 export default router;

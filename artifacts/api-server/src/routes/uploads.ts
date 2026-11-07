@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
-import { requireCreator } from "../lib/auth";
+import { requireCreator, requireAuth } from "../lib/auth";
 import { savePublic, savePrivate } from "../lib/storage";
 
 const router: IRouter = Router();
@@ -38,10 +38,32 @@ const handle = (mw: (req: Request, res: Response, next: NextFunction) => void) =
       next();
     });
 
-/** One image (cover, banner, avatar). Field name: file */
-router.post("/uploads/image", requireCreator, handle(imageUpload.single("file")), async (req, res): Promise<void> => {
+// Logged-in users may upload single images (application samples, studio logo, covers) — limited per hour.
+const imageHits = new Map<number, number[]>();
+function imageLimitOk(userId: number) {
+  const now = Date.now();
+  const list = (imageHits.get(userId) ?? []).filter(t => now - t < 3_600_000);
+  list.push(now);
+  imageHits.set(userId, list);
+  return list.length <= 60;
+}
+
+/** One image (cover, banner, logo, application sample). Field name: file */
+router.post("/uploads/image", requireAuth, handle(imageUpload.single("file")), async (req, res): Promise<void> => {
+  if (!req.user!.creatorId && !imageLimitOk(req.user!.id)) { res.status(429).json({ error: "Too many uploads. Try again later." }); return; }
   const f = req.file;
   if (!f) { res.status(400).json({ error: "No file uploaded" }); return; }
+  const kind = sniff(f.buffer);
+  if (!kind || !IMAGE_TYPES.has(kind)) { res.status(400).json({ error: "Only JPG, PNG, WEBP or GIF images are allowed" }); return; }
+  const url = await savePublic("images", { ...f, mimetype: MIME[kind] }, apiBase(req));
+  res.status(201).json({ url });
+});
+
+/** Profile photo for any logged-in user. Field name: file */
+router.post("/uploads/avatar", requireAuth, handle(imageUpload.single("file")), async (req, res): Promise<void> => {
+  const f = req.file;
+  if (!f) { res.status(400).json({ error: "No file uploaded" }); return; }
+  if (f.size > 5 * MB) { res.status(400).json({ error: "Photo must be under 5 MB" }); return; }
   const kind = sniff(f.buffer);
   if (!kind || !IMAGE_TYPES.has(kind)) { res.status(400).json({ error: "Only JPG, PNG, WEBP or GIF images are allowed" }); return; }
   const url = await savePublic("images", { ...f, mimetype: MIME[kind] }, apiBase(req));

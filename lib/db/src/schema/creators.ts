@@ -12,6 +12,14 @@ export const creatorsTable = pgTable("creators", {
   twitterUrl: text("twitter_url"),
   instagramUrl: text("instagram_url"),
   websiteUrl: text("website_url"),
+  youtubeUrl: text("youtube_url"),
+  type: text("type").notNull().default("individual"), // individual | studio
+  status: text("status").notNull().default("approved"), // pending | approved | suspended | banned
+  city: text("city"),
+  state: text("state"),
+  isRegisteredStudio: boolean("is_registered_studio").notNull().default(false),
+  referralCode: text("referral_code").unique(),
+  ownerUserId: integer("owner_user_id"),
   totalManga: integer("total_manga").notNull().default(0),
   totalViews: integer("total_views").notNull().default(0),
   totalLikes: integer("total_likes").notNull().default(0),

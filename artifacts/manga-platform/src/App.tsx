@@ -24,10 +24,15 @@ import MockPay from "./pages/MockPay";
 import Library from "./pages/Library";
 import Admin from "./pages/Admin";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { FEATURES } from "./lib/features";
+import { rememberRef } from "./lib/api";
+import Settings from "./pages/Settings";
+import Onboarding, { OnboardingGate } from "./pages/Onboarding";
+import TeamInvite from "./pages/TeamInvite";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, Bell, Menu, X, Trophy, Users, Sparkles, ShoppingBag, LogOut, Library as LibraryIcon, User, PenTool, Shield } from "lucide-react";
+import { Search, Bell, Menu, X, Trophy, Users, Sparkles, ShoppingBag, LogOut, Library as LibraryIcon, User, PenTool, Shield, Settings as SettingsIcon } from "lucide-react";
 import { useLocation } from "wouter";
 const logoMark = `${import.meta.env.BASE_URL}surituk-mark.svg`;
 
@@ -60,7 +65,10 @@ function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate(`/user/${me.id}`)}><User className="w-4 h-4 mr-2" /> Profile</DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate("/library")}><LibraryIcon className="w-4 h-4 mr-2" /> My Library</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/creator-dashboard")}><PenTool className="w-4 h-4 mr-2" /> Creator Studio</DropdownMenuItem>
+        {me.creatorId
+          ? <DropdownMenuItem onClick={() => navigate("/creator-dashboard")}><PenTool className="w-4 h-4 mr-2" /> Creator Studio</DropdownMenuItem>
+          : <DropdownMenuItem onClick={() => navigate("/settings?tab=pro")}><PenTool className="w-4 h-4 mr-2" /> Become a Creator</DropdownMenuItem>}
+        <DropdownMenuItem onClick={() => navigate("/settings")}><SettingsIcon className="w-4 h-4 mr-2" /> Settings</DropdownMenuItem>
         {me.role === "admin" && <DropdownMenuItem onClick={() => navigate("/admin")}><Shield className="w-4 h-4 mr-2" /> Admin</DropdownMenuItem>}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => { logout(); navigate("/"); }}><LogOut className="w-4 h-4 mr-2" /> Log out</DropdownMenuItem>
@@ -91,15 +99,15 @@ function Navbar() {
             <Link href="/leaderboard" className="px-3 py-1.5 rounded-lg transition-colors hover:bg-white/5 hover:text-primary text-foreground/70 flex items-center gap-1.5">
               <Trophy className="w-3.5 h-3.5" /> Leaderboard
             </Link>
-            <Link href="/contests" className="px-3 py-1.5 rounded-lg transition-colors hover:bg-white/5 hover:text-primary text-foreground/70 flex items-center gap-1.5">
+            {FEATURES.contests && <Link href="/contests" className="px-3 py-1.5 rounded-lg transition-colors hover:bg-white/5 hover:text-primary text-foreground/70 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" /> Contests
-            </Link>
+            </Link>}
             <Link href="/community" className="px-3 py-1.5 rounded-lg transition-colors hover:bg-white/5 hover:text-primary text-foreground/70 flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5" /> Community
             </Link>
-            <Link href="/store" className="px-3 py-1.5 rounded-lg transition-colors hover:bg-white/5 hover:text-primary text-foreground/70 flex items-center gap-1.5">
+            {FEATURES.store && <Link href="/store" className="px-3 py-1.5 rounded-lg transition-colors hover:bg-white/5 hover:text-primary text-foreground/70 flex items-center gap-1.5">
               <ShoppingBag className="w-3.5 h-3.5" /> Store
-            </Link>
+            </Link>}
           </div>
         </div>
 
@@ -134,12 +142,16 @@ function Navbar() {
         <div className="md:hidden border-t border-border bg-background/98 px-4 py-4 flex flex-col gap-1">
           {[
             { href: "/browse", label: "Browse" },
-            { href: "/store", label: "Store" },
+            ...(FEATURES.store ? [{ href: "/store", label: "Store" }] : []),
             { href: "/leaderboard", label: "Leaderboard" },
-            { href: "/contests", label: "Contests" },
+            ...(FEATURES.contests ? [{ href: "/contests", label: "Contests" }] : []),
             { href: "/community", label: "Community" },
-            { href: "/creator-dashboard", label: "Creator Studio" },
-            ...(me ? [{ href: "/library", label: "My Library" }, { href: `/user/${me.id}`, label: "My Profile" }] : [{ href: "/login", label: "Log in / Sign up" }]),
+            ...(me ? [
+              { href: "/library", label: "My Library" },
+              { href: `/user/${me.id}`, label: "My Profile" },
+              { href: me.creatorId ? "/creator-dashboard" : "/settings?tab=pro", label: me.creatorId ? "Creator Studio" : "Become a Creator" },
+              { href: "/settings", label: "Settings" },
+            ] : [{ href: "/login", label: "Log in / Sign up" }]),
             ...(me?.role === "admin" ? [{ href: "/admin", label: "Admin" }] : []),
           ].map(item => (
             <Link
@@ -175,16 +187,15 @@ function Footer() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link href="/browse" className="hover:text-primary transition-colors">Browse</Link></li>
               <li><Link href="/leaderboard" className="hover:text-primary transition-colors">Leaderboard</Link></li>
-              <li><Link href="/contests" className="hover:text-primary transition-colors">Contests</Link></li>
               <li><Link href="/community" className="hover:text-primary transition-colors">Community</Link></li>
-              <li><Link href="/store" className="hover:text-primary transition-colors">Store</Link></li>
             </ul>
           </div>
           <div>
             <h3 className="font-semibold mb-3 text-sm">Creators</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
+              <li><Link href="/settings?tab=pro" className="hover:text-primary transition-colors">Become a Creator</Link></li>
               <li><Link href="/creator-dashboard" className="hover:text-primary transition-colors">Creator Studio</Link></li>
-              <li><Link href="/store" className="hover:text-primary transition-colors">Sell your books</Link></li>
+
             </ul>
           </div>
           <div>
@@ -220,6 +231,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen flex flex-col w-full bg-background text-foreground selection:bg-primary/30">
       <Navbar />
+      <OnboardingGate />
       <main className="flex-1">{children}</main>
       <Footer />
     </div>
@@ -253,17 +265,21 @@ function Router() {
             <Route path="/browse" component={Browse} />
             <Route path="/manga/:mangaId" component={MangaDetail} />
             <Route path="/leaderboard" component={Leaderboard} />
-            <Route path="/contests" component={Contests} />
+            {FEATURES.contests && <Route path="/contests" component={Contests} />}
             <Route path="/community" component={Community} />
             <Route path="/creator/:creatorId" component={CreatorProfile} />
             <Route path="/creator-dashboard" component={CreatorDashboard} />
             <Route path="/user/:userId" component={UserProfile} />
             <Route path="/genres/:slug" component={GenrePage} />
             <Route path="/login" component={Login} />
-            <Route path="/store" component={Store} />
-            <Route path="/store/:id" component={StoreProduct} />
-            <Route path="/payment/status" component={PaymentStatus} />
-            <Route path="/payment/mock" component={MockPay} />
+            {FEATURES.store && <Route path="/store" component={Store} />}
+            {FEATURES.store && <Route path="/store/:id" component={StoreProduct} />}
+            {FEATURES.store && <Route path="/payment/status" component={PaymentStatus} />}
+            {FEATURES.store && <Route path="/payment/mock" component={MockPay} />}
+            <Route path="/settings" component={Settings} />
+            <Route path="/welcome" component={Onboarding} />
+            <Route path="/join/team/:token" component={TeamInvite} />
+            <Route path="/join/creator/:token">{(p: { token: string }) => <Settings key={p.token} />}</Route>
             <Route path="/library" component={Library} />
             <Route path="/admin" component={Admin} />
             <Route path="/about" component={InfoPage} />
@@ -278,6 +294,8 @@ function Router() {
     </Switch>
   );
 }
+
+rememberRef();
 
 function App() {
   useEffect(() => {

@@ -1,5 +1,9 @@
 import { Link, useParams } from "wouter";
 import { SubscribeButton } from "@/components/SubscribeButton";
+import { useQuery } from "@tanstack/react-query";
+import { api, type HistoryItem } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { resumeHref } from "@/components/ReaderRows";
 import { AdSlot } from "@/components/AdSlot";
 import { useGetManga, useListChapters, useLikeManga, useGetTrendingManga, getGetMangaQueryKey, getListChaptersQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +17,10 @@ import { useState } from "react";
 export default function MangaDetail() {
   const { mangaId } = useParams<{ mangaId: string }>();
   const id = parseInt(mangaId, 10);
-  const { data: manga, isLoading } = useGetManga(id, { query: { enabled: !!id, queryKey: getGetMangaQueryKey(id) } });
+  const { data: manga, isLoading, error } = useGetManga(id, { query: { enabled: !!id, queryKey: getGetMangaQueryKey(id), retry: false } });
+  const { me } = useAuth();
+  const { data: history } = useQuery({ queryKey: ["history", me?.id], queryFn: () => api<HistoryItem[]>("/me/history"), enabled: !!me });
+  const mine = history?.find(h => h.id === id);
   const { data: chapters } = useListChapters(id, { query: { enabled: !!id, queryKey: getListChaptersQueryKey(id) } });
   const { data: trending } = useGetTrendingManga({ limit: 6 });
   const likeMutation = useLikeManga();
@@ -46,6 +53,17 @@ export default function MangaDetail() {
     );
   }
 
+  const isMatureBlock = (error as { status?: number } | null)?.status === 403;
+  if (isMatureBlock) return (
+    <div className="container py-20 flex justify-center">
+      <div className="max-w-md text-center rounded-2xl border border-border bg-card/60 p-8">
+        <div className="text-3xl font-bold text-primary mb-2">18+</div>
+        <h1 className="text-xl font-bold mb-2">This series is for readers 18 and older</h1>
+        <p className="text-sm text-muted-foreground mb-6">{me ? "Confirm your age in Settings to view mature content." : "Log in and confirm you're 18+ to view it."}</p>
+        <Button asChild><Link href={me ? "/settings" : `/login?next=/manga/${id}`}>{me ? "Open Settings" : "Log in"}</Link></Button>
+      </div>
+    </div>
+  );
   if (!manga) return <div className="container py-20 text-center text-muted-foreground">Graphic novel not found</div>;
 
   const statusColor: Record<string, string> = {
@@ -84,6 +102,8 @@ export default function MangaDetail() {
               <Badge variant="secondary">{manga.genre}</Badge>
               {manga.isSponsored && <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Sponsored</Badge>}
               {manga.isFeatured && <Badge className="bg-primary/20 text-primary border-primary/30">Featured</Badge>}
+              {(manga as { isMature?: boolean }).isMature && <Badge className="bg-primary text-primary-foreground">18+</Badge>}
+              {(manga as { isPublished?: boolean }).isPublished === false && <Badge variant="outline">Draft — only you can see this</Badge>}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-2">{manga.title}</h1>
             <div className="flex flex-wrap items-center gap-3">
@@ -109,10 +129,16 @@ export default function MangaDetail() {
             )}
 
             <div className="flex gap-3 mt-6">
-              {chapters && chapters.length > 0 && (
+              {mine?.lastChapterId ? (
+                <Button asChild size="lg" className="bg-primary hover:bg-primary/90" data-testid="button-read">
+                  <Link href={resumeHref(mine)}>
+                    <BookOpen className="w-4 h-4 mr-2" /> Continue Ch {mine.lastChapter} · {Math.round(mine.progress)}%
+                  </Link>
+                </Button>
+              ) : chapters && chapters.length > 0 && (
                 <Button asChild size="lg" className="bg-primary hover:bg-primary/90" data-testid="button-read">
                   <Link href={`/manga/${manga.id}/chapter/${chapters[0].id}`}>
-                    <BookOpen className="w-4 h-4 mr-2" /> Read Chapter 1
+                    <BookOpen className="w-4 h-4 mr-2" /> Read Chapter {chapters[0].chapterNumber}
                   </Link>
                 </Button>
               )}

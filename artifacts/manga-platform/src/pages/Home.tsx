@@ -1,15 +1,14 @@
 import React from "react";
 import { AdSlot } from "@/components/AdSlot";
+import { ReaderRows } from "@/components/ReaderRows";
 import { Link } from "wouter";
 import { 
   useGetFeaturedManga, 
   useGetPlatformStats,
   useGetTrendingManga,
   useGetNewReleases,
-  useGetTopMonthlyManga,
   useGetLatestChapters,
   useListGenres,
-  useGetMangaLeaderboard,
   useGetCreatorSpotlight,
   useGetTopCreators
 } from "@workspace/api-client-react";
@@ -25,10 +24,8 @@ export default function Home() {
   const { data: stats } = useGetPlatformStats();
   const { data: trending } = useGetTrendingManga({ limit: 10 });
   const { data: newReleases } = useGetNewReleases({ limit: 6 });
-  const { data: topMonthly } = useGetTopMonthlyManga();
   const { data: latestChapters } = useGetLatestChapters({ limit: 8 });
   const { data: genres } = useListGenres();
-  const { data: leaderboard } = useGetMangaLeaderboard({ period: "weekly", limit: 5 });
   const { data: spotlight } = useGetCreatorSpotlight();
   const { data: topCreators } = useGetTopCreators({ limit: 4 });
 
@@ -139,39 +136,7 @@ export default function Home() {
         </section>
       )}
 
-      {/* Top Monthly */}
-      <section className="container px-4">
-        <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold flex items-center gap-2 brush-underline">
-            <Trophy className="text-accent w-6 h-6" /> Top Monthly
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {topMonthly ? topMonthly.map((manga, idx) => (
-            <Link key={manga.id} href={`/manga/${manga.id}`}>
-              <Card className="group overflow-hidden border-border bg-card/50 hover:bg-card hover:border-primary/50 transition-all duration-300 cursor-pointer h-[300px] relative">
-                <div className="absolute inset-0">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent z-10" />
-                  <img src={manga.coverImage} alt={manga.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                </div>
-                <CardContent className="relative z-20 h-full flex flex-col justify-end p-6">
-                  <div className="absolute top-4 left-4 w-10 h-10 rounded-full bg-accent/90 backdrop-blur-md flex items-center justify-center text-xl font-bold shadow-lg text-accent-foreground font-display">
-                    {idx + 1}
-                  </div>
-                  <h3 className="text-xl font-bold mb-1 text-white group-hover:text-primary transition-colors line-clamp-1">{manga.title}</h3>
-                  <p className="text-sm text-white/70 mb-2">{manga.creatorName}</p>
-                  <div className="flex items-center gap-3 text-xs text-white/60">
-                    <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-accent" /> {manga.views.toLocaleString()}</span>
-                    <span className="flex items-center gap-1"><Sparkles className="w-3 h-3 text-primary" /> {manga.likes.toLocaleString()}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          )) : (
-            Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-[300px] rounded-xl" />)
-          )}
-        </div>
-      </section>
+      <ReaderRows />
 
       {/* Main Content Grid */}
       <section className="container px-4">
@@ -233,41 +198,6 @@ export default function Home() {
 
           <div className="space-y-12">
             
-            {/* Leaderboard Preview */}
-            <div className="bg-secondary/30 rounded-2xl p-6 border border-border">
-              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                <Trophy className="text-primary w-5 h-5" /> Weekly Top
-              </h2>
-              <div className="space-y-4">
-                {leaderboard ? leaderboard.map((entry) => (
-                  <Link key={entry.mangaId} href={`/manga/${entry.mangaId}`} className="flex items-center gap-4 group">
-                    <div className="w-6 text-center font-bold text-muted-foreground group-hover:text-primary">{entry.rank}</div>
-                    <div className="w-12 h-16 rounded overflow-hidden bg-secondary flex-shrink-0">
-                      <img src={entry.coverImage} alt={entry.title} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors">{entry.title}</h4>
-                      <p className="text-xs text-muted-foreground line-clamp-1">{entry.creatorName}</p>
-                    </div>
-                  </Link>
-                )) : (
-                  Array(5).fill(0).map((_, i) => (
-                    <div key={i} className="flex gap-4 items-center">
-                      <Skeleton className="w-6 h-6 rounded" />
-                      <Skeleton className="w-12 h-16 rounded" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/2" />
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              <Button variant="outline" className="w-full mt-6" asChild>
-                <Link href="/leaderboard">Full Leaderboard</Link>
-              </Button>
-            </div>
-
             {/* Creator Spotlight */}
             {spotlight && (
               <div className="relative rounded-2xl overflow-hidden group border border-border">
@@ -285,7 +215,7 @@ export default function Home() {
                   <h3 className="font-bold text-xl mb-1">{spotlight.name}</h3>
                   <p className="text-sm text-muted-foreground mb-4">{spotlight.followers.toLocaleString()} followers</p>
                   <Button asChild size="sm" className="w-full rounded-full bg-primary hover:bg-primary/90 text-white">
-                    <Link href={`/creator/${spotlight.id}`}>Visit Studio</Link>
+                    <Link href={`/creator/${spotlight.id}`}>Visit page</Link>
                   </Button>
                 </div>
               </div>

@@ -10,8 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ImageUpload } from "@/components/ImageUpload";
 import { api, uploadFiles } from "@/lib/api";
 import { pdfToImages } from "@/lib/pdf";
+import { useAuth } from "@/lib/auth";
+import { Checkbox } from "@/components/ui/checkbox";
 
-type Series = { id: number; title: string; description: string | null; coverImage: string; bannerImage: string | null; genre: string; language: string; status: string; tags: string[] | null; chapterCount: number };
+type Series = { isPublished: boolean; isMature: boolean; id: number; title: string; description: string | null; coverImage: string; bannerImage: string | null; genre: string; language: string; status: string; tags: string[] | null; chapterCount: number };
 type Chapter = { id: number; chapterNumber: number; title: string; pages: string[]; createdAt: string };
 
 const card = "p-6 rounded-xl border border-border bg-card/40";
@@ -147,7 +149,10 @@ function ChapterEditor({ chapter, onClose }: { chapter: Chapter; onClose: () => 
 export function ManageSeries({ seriesId, onBack }: { seriesId: number; onBack: () => void }) {
   const qc = useQueryClient();
   const { data: genres } = useListGenres();
-  const { data: s, isLoading } = useQuery({ queryKey: ["studio-series", seriesId], queryFn: () => api<Series>(`/manga/${seriesId}`) });
+  const { me } = useAuth();
+  const canPublish = me?.creator?.status === "approved";
+  const { data: s, isLoading } = useQuery({ queryKey: ["studio-series", seriesId], queryFn: () => api<Series>(`/studio/series/${seriesId}`) });
+  const [pubBusy, setPubBusy] = useState(false);
   const { data: chapters } = useQuery({ queryKey: ["studio-chapters", seriesId], queryFn: () => api<Chapter[]>(`/manga/${seriesId}/chapters`) });
   const [f, setF] = useState<Partial<Series> & { tagsText?: string } | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
@@ -167,12 +172,19 @@ export function ManageSeries({ seriesId, onBack }: { seriesId: number; onBack: (
     try {
       await api(`/studio/series/${seriesId}`, { method: "PATCH", body: {
         title: form!.title, description: form!.description ?? "", genre: form!.genre, language: form!.language, status: form!.status,
-        coverImage: form!.coverImage, bannerImage: form!.bannerImage ?? "",
+        coverImage: form!.coverImage, bannerImage: form!.bannerImage ?? "", isMature: !!form!.isMature,
         tags: (form!.tagsText ?? "").split(",").map(t => t.trim()).filter(Boolean),
       } });
       qc.invalidateQueries();
       setMsg({ ok: true, t: "Saved" });
     } catch (e) { setMsg({ ok: false, t: (e as Error).message }); }
+  }
+
+  async function setPublished(isPublished: boolean) {
+    setPubBusy(true); setMsg(null);
+    try { await api(`/studio/series/${seriesId}`, { method: "PATCH", body: { isPublished } }); qc.invalidateQueries(); }
+    catch (e) { setMsg({ ok: false, t: (e as Error).message }); }
+    finally { setPubBusy(false); }
   }
 
   async function deleteChapter(ch: Chapter) {
@@ -194,6 +206,17 @@ export function ManageSeries({ seriesId, onBack }: { seriesId: number; onBack: (
         <h1 className="text-3xl font-bold flex-1 min-w-0 truncate">{s?.title}</h1>
         <Button asChild variant="outline" size="sm"><Link href={`/manga/${seriesId}`}><ExternalLink className="w-4 h-4 mr-1.5" /> View page</Link></Button>
       </div>
+
+      <div className={`p-5 rounded-xl border flex flex-col sm:flex-row sm:items-center gap-3 ${s?.isPublished ? "border-green-500/30 bg-green-500/5" : "border-border bg-card/40"}`}>
+        <div className="flex-1">
+          <p className="font-semibold">{s?.isPublished ? "✓ Published — readers can see this series" : "Draft — only you can see this series"}</p>
+          <p className="text-xs text-muted-foreground">{s?.isPublished ? "Unpublish to hide it again." : canPublish ? "Add at least one chapter, then publish." : "You can publish after your creator account is approved."}</p>
+        </div>
+        {s?.isPublished
+          ? <Button variant="outline" disabled={pubBusy} onClick={() => setPublished(false)}>Unpublish</Button>
+          : <Button disabled={pubBusy || !canPublish} onClick={() => setPublished(true)}>{pubBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Publish series"}</Button>}
+      </div>
+      {msg && !msg.ok && <p className="text-sm text-red-400 -mt-4">{msg.t}</p>}
 
       {editing ? <ChapterEditor key={editing.id} chapter={editing} onClose={() => setEditing(null)} /> : (
         <div className={card}>
@@ -230,6 +253,10 @@ export function ManageSeries({ seriesId, onBack }: { seriesId: number; onBack: (
             <div><label className={label}>Status</label><select value={form.status} onChange={e => set({ status: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm"><option value="ongoing">Ongoing</option><option value="completed">Completed</option><option value="hiatus">On break</option></select></div>
           </div>
           <div><label className={label}>Tags</label><Input value={form.tagsText ?? ""} onChange={e => set({ tagsText: e.target.value })} placeholder="comma separated" /></div>
+          <label className="flex items-start gap-3 cursor-pointer text-sm">
+            <Checkbox checked={!!form.isMature} onCheckedChange={v => set({ isMature: v === true })} className="mt-0.5" />
+            <span><b>18+ / mature content</b> <span className="text-muted-foreground">— hidden from readers who haven't confirmed 18+.</span></span>
+          </label>
           {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.t}</p>}
           <Button type="submit" className="w-full">Save details</Button>
         </div>

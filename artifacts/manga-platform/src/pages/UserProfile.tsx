@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Bookmark, Star, Bell, Clock, PenTool, Upload, Store, Wallet, Settings as SettingsIcon, ChevronRight } from "lucide-react";
+import { Trophy, BookOpen, Bookmark, Star, Bell, Clock, PenTool, Upload, Settings as SettingsIcon, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
@@ -74,7 +74,12 @@ export default function UserProfile() {
           </div>
         </div>
         {isOwn && (
-          <Button asChild className="shrink-0"><Link href="/creator-dashboard"><PenTool className="w-4 h-4 mr-2" /> Creator Studio</Link></Button>
+          <div className="flex gap-2 shrink-0">
+            <Button asChild variant="outline"><Link href="/settings"><SettingsIcon className="w-4 h-4 mr-2" /> Settings</Link></Button>
+            {me?.creatorId
+              ? <Button asChild><Link href="/creator-dashboard"><PenTool className="w-4 h-4 mr-2" /> Creator Studio</Link></Button>
+              : <Button asChild><Link href="/settings?tab=pro"><PenTool className="w-4 h-4 mr-2" /> Apply for Creator</Link></Button>}
+          </div>
         )}
       </motion.div>
 
@@ -160,7 +165,7 @@ export default function UserProfile() {
             <div className="rounded-2xl border border-border bg-card/40 p-6">
               <h2 className="text-xl font-bold mb-1">Creator Studio</h2>
               <p className="text-sm text-muted-foreground mb-5">
-                {me?.creatorId ? "Publish and manage your graphic novels, sell books and track your earnings." : "Become a creator to publish your graphic novel or manga and sell books in the Store."}
+                {me?.creatorId ? "Publish and manage your graphic novels and track your readers." : "Apply for a Professional Account to publish your graphic novel or manga on Surituk."}
               </p>
               {me?.creatorId ? (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -168,8 +173,7 @@ export default function UserProfile() {
                     { tab: "manga", label: "My Graphic Novels", hint: "Edit, delete, change pages", icon: <BookOpen className="w-5 h-5 text-primary" /> },
                     { tab: "upload-chapter", label: "Upload Chapter", hint: "Images or PDF", icon: <Upload className="w-5 h-5 text-primary" /> },
                     { tab: "upload-manga", label: "New Graphic Novel", hint: "Start a new series", icon: <PenTool className="w-5 h-5 text-primary" /> },
-                    { tab: "store", label: "Sell Books", hint: "eBooks and print", icon: <Store className="w-5 h-5 text-accent" /> },
-                    { tab: "sales", label: "Sales & Payouts", hint: "Orders, shipping, withdraw", icon: <Wallet className="w-5 h-5 text-accent" /> },
+
                     { tab: "settings", label: "Creator profile", hint: "Photo, banner, UPI", icon: <SettingsIcon className="w-5 h-5 text-muted-foreground" /> },
                   ].map(i => (
                     <Link key={i.tab} href={`/creator-dashboard?tab=${i.tab}`} className="flex items-center gap-3 p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-white/5 transition-colors">
@@ -180,7 +184,7 @@ export default function UserProfile() {
                   ))}
                 </div>
               ) : (
-                <Button asChild><Link href="/creator-dashboard">Become a creator</Link></Button>
+                <Button asChild><Link href="/settings?tab=pro">Apply for Creator</Link></Button>
               )}
             </div>
           </TabsContent>

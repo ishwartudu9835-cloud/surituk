@@ -3,6 +3,12 @@ const env = process.env;
 
 export const isProd = env.NODE_ENV === "production";
 
+/** Features switched off for now (code kept for a later phase). Turn on with env = "true". */
+export const features = {
+  store: env.STORE_ENABLED === "true",
+  contests: env.CONTESTS_ENABLED === "true",
+};
+
 export const config = {
   /** Public URL of the website (used for payment redirects and links in emails). */
   frontendUrl: (env.FRONTEND_URL ?? "http://localhost:5173").replace(/\/+$/, ""),

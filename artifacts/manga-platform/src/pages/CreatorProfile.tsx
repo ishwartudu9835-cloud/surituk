@@ -3,11 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useGetCreator, useGetCreatorAnalytics, useListManga, getGetCreatorQueryKey, getGetCreatorAnalyticsQueryKey, getListMangaQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { Eye, Heart, Users, Twitter, Instagram, Globe, CheckCircle, BookOpen, ShoppingBag } from "lucide-react";
+import { Eye, Heart, Users, Twitter, Instagram, Globe, CheckCircle, BookOpen, ShoppingBag, Youtube, MapPin, BadgeCheck, Building2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { SubscribeButton } from "@/components/SubscribeButton";
 import { api, type Product } from "@/lib/api";
 import { priceLine } from "./Store";
+import { FEATURES } from "@/lib/features";
 
 const RED = "hsl(358 80% 52%)";
 
@@ -18,8 +19,12 @@ export default function CreatorProfile() {
   const { data: creator, isLoading } = useGetCreator(id, { query: { enabled: !!id, queryKey: getGetCreatorQueryKey(id) } });
   const { data: analytics } = useGetCreatorAnalytics(id, { query: { enabled: !!id, queryKey: getGetCreatorAnalyticsQueryKey(id) } });
   const { data: manga } = useListManga({ limit: 100 }, { query: { queryKey: getListMangaQueryKey({ limit: 100 }) } });
-  const { data: books } = useQuery({ queryKey: ["creator-books", id], queryFn: () => api<Product[]>(`/market/products?creatorId=${id}`), enabled: !!id });
+  const { data: books } = useQuery({ queryKey: ["creator-books", id], queryFn: () => api<Product[]>(`/market/products?creatorId=${id}`), enabled: !!id && FEATURES.store });
   const creatorManga = manga?.filter(m => m.creatorId === id) ?? [];
+  const { data: team } = useQuery({ queryKey: ["team-public", id], queryFn: () => api<{ name: string; role: string; avatar: string | null }[]>(`/creators/${id}/team`), enabled: !!id });
+  const extra = creator as unknown as { type?: string; city?: string | null; state?: string | null; isRegisteredStudio?: boolean; socialLinks?: { youtube?: string | null } } | undefined;
+  const isStudio = extra?.type === "studio";
+  const location = [extra?.city, extra?.state].filter(Boolean).join(", ");
 
   if (isLoading) {
     return (
@@ -47,13 +52,17 @@ export default function CreatorProfile() {
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h1 className="text-3xl md:text-4xl font-bold">{creator.name}</h1>
-              {creator.isVerified && <CheckCircle className="w-5 h-5 text-primary" />}
+              {creator.isVerified && <span title="Verified creator"><CheckCircle className="w-5 h-5 text-primary" /></span>}
+              {isStudio && <span className="text-xs px-2 py-0.5 rounded-full bg-secondary flex items-center gap-1"><Building2 className="w-3 h-3" /> Studio</span>}
+              {extra?.isRegisteredStudio && <span className="text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent flex items-center gap-1"><BadgeCheck className="w-3 h-3" /> Registered Studio</span>}
             </div>
+            {location && <p className="text-sm text-muted-foreground flex items-center gap-1 mb-1"><MapPin className="w-3.5 h-3.5" /> {location}</p>}
             {creator.studioName && <p className="text-muted-foreground mb-2">{creator.studioName}</p>}
             {creator.bio && <p className="text-sm text-muted-foreground max-w-xl mb-3 whitespace-pre-line">{creator.bio}</p>}
             <div className="flex items-center gap-3">
               {creator.socialLinks?.twitter && <a href={creator.socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><Twitter className="w-5 h-5" /></a>}
               {creator.socialLinks?.instagram && <a href={creator.socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><Instagram className="w-5 h-5" /></a>}
+              {extra?.socialLinks?.youtube && <a href={extra.socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary" aria-label="YouTube"><Youtube className="w-5 h-5" /></a>}
               {creator.socialLinks?.website && <a href={creator.socialLinks.website} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary"><Globe className="w-5 h-5" /></a>}
             </div>
           </div>
@@ -75,6 +84,21 @@ export default function CreatorProfile() {
             </motion.div>
           ))}
         </div>
+
+        {/* Team */}
+        {isStudio && team && team.length > 0 && (
+          <div className="mb-10">
+            <h2 className="text-2xl font-bold mb-6 brush-underline">Team</h2>
+            <div className="flex flex-wrap gap-3">
+              {team.map((m, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 pr-4 rounded-full border border-border bg-card/40">
+                  {m.avatar ? <img src={m.avatar} alt="" className="w-9 h-9 rounded-full object-cover" /> : <div className="w-9 h-9 rounded-full bg-secondary" />}
+                  <div><p className="text-sm font-semibold">{m.name}</p><p className="text-xs text-muted-foreground capitalize">{m.role}</p></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Series */}
         <h2 className="text-2xl font-bold mb-6 brush-underline">Graphic Novels & Manga</h2>

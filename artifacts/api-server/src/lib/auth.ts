@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { eq } from "drizzle-orm";
-import { db, usersTable, type User } from "@workspace/db";
+import { db, usersTable, creatorsTable, type User } from "@workspace/db";
 import { config } from "./config";
 
 const b64url = (buf: Buffer | string) => Buffer.from(buf).toString("base64url");
@@ -34,7 +34,7 @@ export const createSessionToken = (userId: number) => signToken({ uid: userId, t
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
-    interface Request { user?: User }
+    interface Request { user?: User; creatorStatus?: string }
   }
 }
 
@@ -45,7 +45,13 @@ export async function loadUser(req: Request, _res: Response, next: NextFunction)
     const data = verifyToken<{ uid: number; t: string }>(header.slice(7));
     if (data?.t === "session") {
       const [user] = await db.select().from(usersTable).where(eq(usersTable.id, data.uid));
-      if (user) req.user = user;
+      if (user) {
+        req.user = user;
+        if (user.creatorId) {
+          const [c] = await db.select({ status: creatorsTable.status }).from(creatorsTable).where(eq(creatorsTable.id, user.creatorId));
+          req.creatorStatus = c?.status;
+        }
+      }
     }
   }
   next();
@@ -56,11 +62,16 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
+/** Any creator account that isn't suspended/banned. Pending applicants pass too (they may only make private drafts). */
 export function requireCreator(req: Request, res: Response, next: NextFunction) {
   if (!req.user) { res.status(401).json({ error: "Please log in first" }); return; }
   if (!req.user.creatorId) { res.status(403).json({ error: "Creator account required" }); return; }
+  if (req.creatorStatus === "suspended") { res.status(403).json({ error: "Your creator account is suspended. Contact support." }); return; }
+  if (req.creatorStatus === "banned") { res.status(403).json({ error: "Your creator account has been banned." }); return; }
   next();
 }
+
+export const isApprovedCreator = (req: Request) => !!req.user?.creatorId && req.creatorStatus === "approved";
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (req.user?.role !== "admin") { res.status(403).json({ error: "Admin only" }); return; }
@@ -74,7 +85,12 @@ export function publicUser(u: User) {
     displayName: u.displayName,
     email: u.email,
     avatar: u.avatar,
+    bio: u.bio,
     role: u.role,
     creatorId: u.creatorId,
+    isAdult: u.isAdult,
+    favoriteGenres: u.favoriteGenres ?? [],
+    uiLanguage: u.uiLanguage,
+    onboarded: u.onboarded,
   };
 }

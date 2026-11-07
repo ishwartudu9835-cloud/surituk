@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
-  useGetCreator, useGetCreatorAnalytics, useListManga, useCreateManga, useCreateChapter, useListGenres,
+  useGetCreator, useGetCreatorAnalytics, useCreateChapter, useListGenres,
   getGetCreatorQueryKey, getGetCreatorAnalyticsQueryKey, getListMangaQueryKey,
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,17 +19,24 @@ import { ImageUpload } from "@/components/ImageUpload";
 import { api, rupees, uploadFiles, type Product } from "@/lib/api";
 import { pdfToImages } from "@/lib/pdf";
 import { ManageSeries } from "@/components/ManageSeries";
+import { FEATURES } from "@/lib/features";
+import { Checkbox } from "@/components/ui/checkbox";
+import { INDIAN_STATES } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-type Section = "overview" | "manga" | "upload-manga" | "upload-chapter" | "store" | "sales" | "settings";
+type Section = "overview" | "manga" | "upload-manga" | "upload-chapter" | "store" | "sales" | "team" | "settings";
+type MySeries = { id: number; title: string; coverImage: string; chapterCount: number; views: number; isPublished: boolean; isMature: boolean; genre: string };
 const sidebarItems: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: "overview", label: "Overview", icon: <BarChart2 className="w-4 h-4" /> },
   { id: "manga", label: "My Graphic Novels", icon: <BookOpen className="w-4 h-4" /> },
   { id: "upload-manga", label: "New Graphic Novel", icon: <Upload className="w-4 h-4" /> },
   { id: "upload-chapter", label: "Upload Chapter", icon: <Upload className="w-4 h-4" /> },
-  { id: "store", label: "Sell Books", icon: <Store className="w-4 h-4" /> },
-  { id: "sales", label: "Sales & Payouts", icon: <Wallet className="w-4 h-4" /> },
-  { id: "settings", label: "Profile & Settings", icon: <Settings className="w-4 h-4" /> },
+  ...(FEATURES.store ? [
+    { id: "store" as Section, label: "Sell Books", icon: <Store className="w-4 h-4" /> },
+    { id: "sales" as Section, label: "Sales & Payouts", icon: <Wallet className="w-4 h-4" /> },
+  ] : []),
+  { id: "team", label: "Studio Team", icon: <Users className="w-4 h-4" /> },
+  { id: "settings", label: "Creator Page", icon: <Settings className="w-4 h-4" /> },
 ];
 
 const LANGUAGES = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Marathi", "Japanese", "Korean", "Other"];
@@ -38,56 +45,28 @@ const card = "p-6 rounded-xl border border-border bg-card/40";
 const label = "text-sm font-medium mb-1.5 block";
 const naturalSort = (a: File, b: File) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
 
-/* ---------------- Become a creator ---------------- */
-
-function BecomeCreator() {
-  const { refresh, me } = useAuth();
-  const [name, setName] = useState(me?.displayName ?? "");
-  const [studioName, setStudio] = useState("");
-  const [bio, setBio] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  async function submit(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setErr("");
-    try { await api("/creators/me", { body: { name, studioName, bio } }); await refresh(); }
-    catch (e) { setErr((e as Error).message); setBusy(false); }
-  }
-  return (
-    <div className="container px-4 py-16 max-w-lg">
-      <p className="uppercase tracking-[0.3em] text-xs text-primary font-semibold mb-2">Creator Studio</p>
-      <h1 className="text-4xl font-bold mb-3">Start publishing on Surituk</h1>
-      <p className="text-muted-foreground mb-8">Publish your graphic novel or manga chapter by chapter for free reading, and sell eBooks or printed copies in the Store. You keep 80% of every book sale.</p>
-      <form onSubmit={submit} className={`${card} space-y-4`}>
-        <div><label className={label}>Creator / pen name *</label><Input required value={name} onChange={e => setName(e.target.value)} /></div>
-        <div><label className={label}>Studio name</label><Input value={studioName} onChange={e => setStudio(e.target.value)} placeholder="Optional" /></div>
-        <div><label className={label}>Short bio</label><Textarea rows={3} value={bio} onChange={e => setBio(e.target.value)} /></div>
-        {err && <p className="text-sm text-red-400">{err}</p>}
-        <Button type="submit" disabled={busy} className="w-full">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create my creator account"}</Button>
-      </form>
-    </div>
-  );
-}
-
 /* ---------------- Upload manga ---------------- */
 
-function UploadManga({ onDone }: { onDone: () => void }) {
+function UploadManga({ onDone, canPublish }: { onDone: () => void; canPublish: boolean }) {
   const qc = useQueryClient();
   const { data: genres } = useListGenres();
-  const createManga = useCreateManga();
-  const [f, setF] = useState({ title: "", description: "", genre: "", language: "English", coverImage: "", bannerImage: "", tags: "" });
+  const [f, setF] = useState({ title: "", description: "", genre: "", language: "English", coverImage: "", bannerImage: "", tags: "", isMature: false });
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault(); setErr("");
     if (!f.coverImage) { setErr("Please upload a cover image"); return; }
-    createManga.mutate({ data: {
-      title: f.title, description: f.description, genre: f.genre || genres?.[0]?.name || "Action", language: f.language,
-      coverImage: f.coverImage, bannerImage: f.bannerImage || undefined,
-      tags: f.tags.split(",").map(t => t.trim()).filter(Boolean).slice(0, 8),
-    } }, {
-      onSuccess: () => { qc.invalidateQueries({ queryKey: getListMangaQueryKey() }); onDone(); },
-      onError: (e: any) => setErr(e?.data?.error ?? e?.message ?? "Failed"),
-    });
+    setBusy(true);
+    try {
+      await api("/manga", { body: {
+        title: f.title, description: f.description, genre: f.genre || genres?.[0]?.name || "Action", language: f.language,
+        coverImage: f.coverImage, bannerImage: f.bannerImage || undefined, isMature: f.isMature, publish: false,
+        tags: f.tags.split(",").map(t => t.trim()).filter(Boolean).slice(0, 8),
+      } });
+      qc.invalidateQueries({ queryKey: ["my-series"] });
+      onDone();
+    } catch (e) { setErr((e as Error).message); setBusy(false); }
   }
 
   return (
@@ -112,8 +91,13 @@ function UploadManga({ onDone }: { onDone: () => void }) {
             </div>
           </div>
           <div><label className={label}>Tags</label><Input value={f.tags} onChange={e => setF({ ...f, tags: e.target.value })} placeholder="comma separated, e.g. revenge, school" /></div>
+          <label className="flex items-start gap-3 cursor-pointer text-sm">
+            <Checkbox checked={f.isMature} onCheckedChange={v => setF({ ...f, isMature: v === true })} className="mt-0.5" />
+            <span><b>18+ / mature content</b> <span className="text-muted-foreground">— only readers who confirmed 18+ will see it.</span></span>
+          </label>
+          <p className="text-xs text-muted-foreground rounded-lg bg-secondary/50 px-3 py-2">The series is saved as a <b>private draft</b>. Add chapters, then {canPublish ? "publish it from My Graphic Novels." : "publish after your creator account is approved."}</p>
           {err && <p className="text-sm text-red-400">{err}</p>}
-          <Button type="submit" disabled={createManga.isPending} className="w-full">{createManga.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Publish series"}</Button>
+          <Button type="submit" disabled={busy} className="w-full">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create draft series"}</Button>
         </div>
       </form>
     </div>
@@ -436,10 +420,10 @@ function Sales({ goSettings }: { goSettings: () => void }) {
         <div className="flex-1 text-sm">
           <p className="font-semibold mb-1 flex items-center gap-2"><IndianRupee className="w-4 h-4" /> Withdraw to UPI</p>
           <p className="text-muted-foreground">eBook earnings are available right away; print earnings once you mark the order shipped. Minimum withdrawal {rupees(s?.minPayout)}.</p>
-          <p className="mt-1">UPI: {me?.creator?.upiId ? <b>{me.creator.upiId}</b> : <button onClick={goSettings} className="text-primary underline">add your UPI ID</button>}</p>
+          <p className="mt-1">UPI: {(me?.creator as { upiId?: string } | null)?.upiId ? <b>{(me?.creator as { upiId?: string } | null)?.upiId}</b> : <button onClick={goSettings} className="text-primary underline">add your UPI ID</button>}</p>
           {msg && <p className="mt-2 text-accent">{msg}</p>}
         </div>
-        <Button onClick={withdraw} disabled={!s || s.available < s.minPayout || !me?.creator?.upiId}>Withdraw {rupees(s?.available)}</Button>
+        <Button onClick={withdraw} disabled={!s || s.available < s.minPayout || !(me?.creator as { upiId?: string } | null)?.upiId}>Withdraw {rupees(s?.available)}</Button>
       </div>
 
       {toShip.length > 0 && (
@@ -512,10 +496,11 @@ function CreatorSettings() {
   const { me, refresh } = useAuth();
   const qc = useQueryClient();
   const c = me?.creator;
+  const studio = c?.type === "studio";
   const [f, setF] = useState({
-    name: c?.name ?? "", studioName: c?.studioName ?? "", bio: c?.bio ?? "",
+    name: c?.name ?? "", studioName: c?.studioName ?? "", bio: c?.bio ?? "", city: c?.city ?? "", state: c?.state ?? "",
     avatar: c?.avatar?.startsWith("http") ? c.avatar : "", banner: c?.banner ?? "",
-    upiId: c?.upiId ?? "", payoutName: c?.payoutName ?? "",
+    instagramUrl: c?.instagramUrl ?? "", twitterUrl: c?.twitterUrl ?? "", youtubeUrl: c?.youtubeUrl ?? "", websiteUrl: c?.websiteUrl ?? "",
   });
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   async function save(e: React.FormEvent) {
@@ -527,35 +512,80 @@ function CreatorSettings() {
       setMsg({ ok: true, t: "Saved" });
     } catch (e) { setMsg({ ok: false, t: (e as Error).message }); }
   }
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
   return (
     <div className="max-w-2xl">
-      <h1 className="text-3xl font-bold mb-6">Profile & Settings</h1>
+      <h1 className="text-3xl font-bold mb-6">{studio ? "Studio Page" : "Creator Page"}</h1>
       <form onSubmit={save} className={`${card} space-y-5`}>
         <div className="grid sm:grid-cols-[160px_1fr] gap-5">
-          <div>
-            <label className={label}>Profile photo</label>
-            <ImageUpload value={f.avatar} onChange={avatar => setF({ ...f, avatar })} aspect="aspect-square" label="Upload photo" />
-          </div>
-          <div>
-            <label className={label}>Banner (shown on your creator page)</label>
-            <ImageUpload value={f.banner} onChange={banner => setF({ ...f, banner })} aspect="aspect-[16/6]" label="Upload banner" />
-          </div>
+          <div><label className={label}>{studio ? "Studio logo" : "Profile photo"}</label><ImageUpload value={f.avatar} onChange={avatar => setF({ ...f, avatar })} aspect="aspect-square" label="Upload" /></div>
+          <div><label className={label}>Banner</label><ImageUpload value={f.banner} onChange={banner => setF({ ...f, banner })} aspect="aspect-[16/6]" label="Upload banner" /></div>
         </div>
-        <div><label className={label}>Creator name</label><Input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></div>
-        <div><label className={label}>Studio name</label><Input value={f.studioName} onChange={e => setF({ ...f, studioName: e.target.value })} /></div>
-        <div><label className={label}>Bio</label><Textarea rows={3} value={f.bio} onChange={e => setF({ ...f, bio: e.target.value })} placeholder="Tell readers about yourself and your stories" /></div>
-        <div className="pt-2 border-t border-border">
-          <p className="font-semibold mb-3">Payout details</p>
-          <div className="space-y-3">
-            <div><label className={label}>UPI ID</label><Input value={f.upiId} onChange={e => setF({ ...f, upiId: e.target.value })} placeholder="yourname@okaxis" /></div>
-            <div><label className={label}>Name on bank account</label><Input value={f.payoutName} onChange={e => setF({ ...f, payoutName: e.target.value })} /></div>
-          </div>
+        <div><label className={label}>{studio ? "Studio name" : "Creator name"}</label><Input value={f.name} onChange={set("name")} /></div>
+        <div><label className={label}>{studio ? "Studio description" : "Bio"}</label><Textarea rows={4} value={f.bio} onChange={set("bio")} placeholder="Tell readers about your stories" /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className={label}>City</label><Input value={f.city} onChange={set("city")} /></div>
+          <div><label className={label}>State</label><select value={f.state} onChange={set("state")} className="w-full h-10 rounded-md bg-background border border-input px-3 text-sm"><option value="">—</option>{INDIAN_STATES.map(s => <option key={s}>{s}</option>)}</select></div>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t border-border">
+          <div><label className={label}>Instagram</label><Input value={f.instagramUrl} onChange={set("instagramUrl")} placeholder="https://instagram.com/…" /></div>
+          <div><label className={label}>X (Twitter)</label><Input value={f.twitterUrl} onChange={set("twitterUrl")} placeholder="https://x.com/…" /></div>
+          <div><label className={label}>YouTube</label><Input value={f.youtubeUrl} onChange={set("youtubeUrl")} placeholder="https://youtube.com/@…" /></div>
+          <div><label className={label}>Website</label><Input value={f.websiteUrl} onChange={set("websiteUrl")} placeholder="https://" /></div>
         </div>
         {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.t}</p>}
         <div className="flex gap-3">
           <Button type="submit" className="flex-1">Save</Button>
-          {c && <Button asChild variant="outline"><Link href={`/creator/${c.id}`}>View my page</Link></Button>}
+          {c && c.status === "approved" && <Button asChild variant="outline"><Link href={`/creator/${c.id}`}>View public page</Link></Button>}
         </div>
+      </form>
+      <p className="text-xs text-muted-foreground mt-4">Payment details (UPI) are asked only when your earnings reach the minimum payout.</p>
+    </div>
+  );
+}
+
+/* ---------------- Studio team ---------------- */
+
+function StudioTeam() {
+  const { me } = useAuth();
+  const qc = useQueryClient();
+  const { data } = useQuery({ queryKey: ["studio-team"], queryFn: () => api<{ id: number; name: string; email: string; role: string; status: string }[]>("/pro/team") });
+  const [f, setF] = useState({ name: "", email: "", role: "artist" });
+  const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
+  if (me?.creator?.type !== "studio") return <div className={card}>Team members are for Studio accounts.</div>;
+  async function invite(e: React.FormEvent) {
+    e.preventDefault(); setMsg(null);
+    try { await api("/pro/team", { body: f }); setF({ name: "", email: "", role: "artist" }); setMsg({ ok: true, t: "Invite sent by email" }); qc.invalidateQueries({ queryKey: ["studio-team"] }); }
+    catch (e) { setMsg({ ok: false, t: (e as Error).message }); }
+  }
+  async function remove(id: number) {
+    if (!confirm("Remove this member from the studio?")) return;
+    await api(`/pro/team/${id}`, { method: "DELETE" }); qc.invalidateQueries({ queryKey: ["studio-team"] });
+  }
+  return (
+    <div className="max-w-2xl space-y-6">
+      <h1 className="text-3xl font-bold">Studio Team</h1>
+      <div className={card}>
+        <div className="divide-y divide-border">
+          {data?.map(m => (
+            <div key={m.id} className="flex items-center gap-3 py-3">
+              <div className="flex-1 min-w-0"><p className="font-medium">{m.name}</p><p className="text-xs text-muted-foreground truncate">{m.email}</p></div>
+              <span className="text-xs capitalize px-2 py-0.5 rounded bg-secondary">{m.role}</span>
+              <span className={`text-xs px-2 py-0.5 rounded ${m.status === "active" ? "bg-green-500/15 text-green-400" : "bg-accent/15 text-accent"}`}>{m.status === "active" ? "Joined" : "Invited"}</span>
+              {m.role !== "owner" && <Button size="icon" variant="ghost" onClick={() => remove(m.id)} aria-label="Remove"><X className="w-4 h-4" /></Button>}
+            </div>
+          ))}
+        </div>
+      </div>
+      <form onSubmit={invite} className={`${card} space-y-3`}>
+        <h2 className="font-bold">Invite a member</h2>
+        <div className="grid sm:grid-cols-[1fr_1fr_130px] gap-2">
+          <Input required placeholder="Name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} />
+          <Input required type="email" placeholder="Email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} />
+          <select value={f.role} onChange={e => setF({ ...f, role: e.target.value })} className="h-10 rounded-md bg-background border border-input px-3 text-sm"><option value="artist">Artist</option><option value="writer">Writer</option><option value="editor">Editor</option></select>
+        </div>
+        {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.t}</p>}
+        <Button type="submit">Send invite</Button>
       </form>
     </div>
   );
@@ -574,24 +604,39 @@ export default function CreatorDashboard() {
   const enabled = creatorId > 0;
   const { data: creator } = useGetCreator(creatorId, { query: { queryKey: getGetCreatorQueryKey(creatorId), enabled } });
   const { data: analytics } = useGetCreatorAnalytics(creatorId, { query: { queryKey: getGetCreatorAnalyticsQueryKey(creatorId), enabled } });
-  const { data: allManga } = useListManga({ limit: 100 }, { query: { queryKey: getListMangaQueryKey({ limit: 100 }), enabled } });
-  const myManga = allManga?.filter(m => m.creatorId === creatorId) ?? [];
+  const { data: myManga = [] } = useQuery({ queryKey: ["my-series"], queryFn: () => api<MySeries[]>("/studio/my-series"), enabled });
+  const status = me?.creator?.status;
+  const approved = status === "approved";
 
   if (loading) return <div className="container px-4 py-10"><Skeleton className="h-10 w-64 mb-6" /><Skeleton className="h-64" /></div>;
   if (!me) return (
     <div className="container px-4 py-20 text-center max-w-md">
       <h1 className="text-3xl font-bold mb-3">Creator Studio</h1>
-      <p className="text-muted-foreground mb-6">Log in to publish your graphic novels and sell your books.</p>
+      <p className="text-muted-foreground mb-6">Log in to publish your graphic novels.</p>
       <Button asChild><Link href="/login?next=/creator-dashboard">Log in / Sign up</Link></Button>
     </div>
   );
-  if (!me.creatorId) return <BecomeCreator />;
+  if (!me.creatorId) return (
+    <div className="container px-4 py-20 text-center max-w-lg">
+      <h1 className="text-3xl font-bold mb-3">Creator Studio</h1>
+      <p className="text-muted-foreground mb-6">Creator Studio opens after your Professional Account is approved. Apply as an Individual Creator or a Studio — review takes 3–7 days.</p>
+      <Button asChild><Link href="/settings?tab=pro">Apply for Creator</Link></Button>
+    </div>
+  );
+  if (status === "suspended" || status === "banned") return (
+    <div className="container px-4 py-20 text-center max-w-lg">
+      <h1 className="text-3xl font-bold mb-3">Creator account {status}</h1>
+      <p className="text-muted-foreground">Contact support@surituk.com if you think this is a mistake.</p>
+    </div>
+  );
+  const visibleItems = sidebarItems.filter(i => (i.id !== "team" || me.creator?.type === "studio") && (approved || !["store", "sales", "overview"].includes(i.id)));
+  const current: Section = !approved && ["overview", "store", "sales"].includes(active) ? "manga" : active;
 
   const nav = (item: typeof sidebarItems[number], mobile = false) => (
     <button key={item.id} onClick={() => setActive(item.id)}
       className={mobile
-        ? `flex items-center gap-1.5 px-3 py-3 text-xs font-medium whitespace-nowrap border-b-2 shrink-0 ${active === item.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`
-        : `w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${active === item.id ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
+        ? `flex items-center gap-1.5 px-3 py-3 text-xs font-medium whitespace-nowrap border-b-2 shrink-0 ${current === item.id ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`
+        : `w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${current === item.id ? "bg-primary/15 text-primary font-medium" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
       {item.icon} {item.label}
     </button>
   );
@@ -605,12 +650,18 @@ export default function CreatorDashboard() {
           <p className="text-sm font-medium truncate">{creator?.name ?? me.creator?.name}{creator?.isVerified && <CheckCircle className="w-3 h-3 text-primary inline ml-1" />}</p>
         </div>
         <Button asChild variant="ghost" size="sm" className="w-full justify-start mb-2 text-muted-foreground"><Link href="/"><Home className="w-4 h-4 mr-2" /> Back to Home</Link></Button>
-        <nav className="space-y-1">{sidebarItems.map(i => nav(i))}</nav>
+        <nav className="space-y-1">{visibleItems.map(i => nav(i))}</nav>
       </aside>
-      <div className="md:hidden border-b border-border bg-card/30 sticky top-16 z-40"><div className="flex overflow-x-auto px-2">{sidebarItems.map(i => nav(i, true))}</div></div>
+      <div className="md:hidden border-b border-border bg-card/30 sticky top-16 z-40"><div className="flex overflow-x-auto px-2">{visibleItems.map(i => nav(i, true))}</div></div>
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        {active === "overview" && (
+        {!approved && (
+          <div className="mb-6 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="flex-1"><b>Your application is under review.</b> You can prepare <b>private drafts</b> now — they can be published after approval.</span>
+            <Link href="/settings?tab=pro" className="text-accent underline shrink-0">View status</Link>
+          </div>
+        )}
+        {current === "overview" && (
           <div>
             <h1 className="text-3xl font-bold mb-6">Overview</h1>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -652,8 +703,8 @@ export default function CreatorDashboard() {
           </div>
         )}
 
-        {active === "manga" && managing !== null && <ManageSeries seriesId={managing} onBack={() => setManaging(null)} />}
-        {active === "manga" && managing === null && (
+        {current === "manga" && managing !== null && <ManageSeries seriesId={managing} onBack={() => setManaging(null)} />}
+        {current === "manga" && managing === null && (
           <div>
             <div className="flex items-center justify-between mb-2">
               <h1 className="text-3xl font-bold">My Graphic Novels</h1>
@@ -665,6 +716,10 @@ export default function CreatorDashboard() {
                 <button key={m.id} onClick={() => setManaging(m.id)} className="group text-left">
                   <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-border mb-2">
                     <img src={m.coverImage} alt="" className="w-full h-full object-cover" />
+                    <div className="absolute top-2 left-2 flex gap-1">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${m.isPublished ? "bg-green-600/90" : "bg-black/80"}`}>{m.isPublished ? "Published" : "Draft"}</span>
+                      {m.isMature && <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-primary/90">18+</span>}
+                    </div>
                     <span className="absolute inset-x-0 bottom-0 bg-black/70 text-xs py-1.5 text-center opacity-0 group-hover:opacity-100 transition-opacity">Manage</span>
                   </div>
                   <p className="text-sm font-medium line-clamp-2 group-hover:text-primary">{m.title}</p>
@@ -676,11 +731,12 @@ export default function CreatorDashboard() {
           </div>
         )}
 
-        {active === "upload-manga" && <UploadManga onDone={() => setActive("upload-chapter")} />}
-        {active === "upload-chapter" && <UploadChapter myManga={myManga} />}
-        {active === "store" && <SellBooks />}
-        {active === "sales" && <Sales goSettings={() => setActive("settings")} />}
-        {active === "settings" && <CreatorSettings />}
+        {current === "upload-manga" && <UploadManga canPublish={approved} onDone={() => setActive("upload-chapter")} />}
+        {current === "upload-chapter" && <UploadChapter myManga={myManga} />}
+        {current === "store" && <SellBooks />}
+        {current === "sales" && <Sales goSettings={() => setActive("settings")} />}
+        {current === "team" && <StudioTeam />}
+        {current === "settings" && <CreatorSettings />}
       </main>
     </div>
   );

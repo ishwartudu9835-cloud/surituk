@@ -5,7 +5,7 @@ import { Mail, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { api, type Me } from "@/lib/api";
+import { api, getRef, type Me } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 declare global {
@@ -70,7 +70,7 @@ export default function Login() {
         callback: async ({ credential }) => {
           setBusy(true); setError("");
           try {
-            const r = await api<{ token: string; user: Me }>("/auth/google", { body: { credential } });
+            const r = await api<{ token: string; user: Me }>("/auth/google", { body: { credential, ref: getRef() } });
             await login(r.token);
           } catch (e) { setError((e as Error).message); }
           finally { setBusy(false); }
@@ -96,7 +96,7 @@ export default function Login() {
     if (value.length !== 6) return;
     setBusy(true); setError("");
     try {
-      const r = await api<{ token: string }>("/auth/otp/verify", { body: { email, code: value } });
+      const r = await api<{ token: string }>("/auth/otp/verify", { body: { email, code: value, ref: getRef() } });
       await login(r.token);
     } catch (e) { setError((e as Error).message); setCode(""); }
     finally { setBusy(false); }

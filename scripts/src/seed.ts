@@ -30,7 +30,7 @@ const daysFromNow = (d: number) => new Date(Date.now() + d * 86_400_000);
 async function main() {
   console.log("Clearing tables…");
   await db.execute(sql`TRUNCATE TABLE
-    payouts, orders, products, otp_codes,
+    payouts, orders, products, otp_codes, creator_subscriptions, creator_applications, team_members, creator_invites, views_daily, admin_audit_log, app_settings,
     notifications, bookmarks, reading_history, community_posts, contest_winners,
     contests, chapters, manga, users, genres, creators
     RESTART IDENTITY CASCADE`);
@@ -51,9 +51,9 @@ async function main() {
 
   console.log("Seeding creators…");
   const creators = await db.insert(creatorsTable).values([
-    { name: "Hiroshi Takeda", studioName: "Inkfall Studio", avatar: img("cr-hiroshi", 200, 200), banner: img("cr-hiroshi-b", 1400, 400), bio: "Action storyteller. Ten years of drawing swords, storms and stubborn heroes.", twitterUrl: "https://x.com", instagramUrl: "https://instagram.com", totalManga: 3, totalViews: 4_820_000, totalLikes: 312_000, followers: 128_400, revenue: 18_420, isVerified: true, rank: 1, joinedAt: daysAgo(720) },
+    { referralCode: "hiroshi2026", name: "Hiroshi Takeda", studioName: "Inkfall Studio", avatar: img("cr-hiroshi", 200, 200), banner: img("cr-hiroshi-b", 1400, 400), bio: "Action storyteller. Ten years of drawing swords, storms and stubborn heroes.", twitterUrl: "https://x.com", instagramUrl: "https://instagram.com", totalManga: 3, totalViews: 4_820_000, totalLikes: 312_000, followers: 128_400, revenue: 18_420, isVerified: true, rank: 1, joinedAt: daysAgo(720) },
     { name: "Yuki Matsumoto", studioName: "Paper Lantern", avatar: img("cr-yuki", 200, 200), banner: img("cr-yuki-b", 1400, 400), bio: "Quiet romances and loud feelings.", instagramUrl: "https://instagram.com", totalManga: 2, totalViews: 3_150_000, totalLikes: 268_000, followers: 96_200, revenue: 12_870, isVerified: true, rank: 2, joinedAt: daysAgo(560) },
-    { name: "Aarav Mehta", studioName: "Kalpa Comics", avatar: img("cr-aarav", 200, 200), banner: img("cr-aarav-b", 1400, 400), bio: "Retelling Indian myths in manga form, one panel at a time.", twitterUrl: "https://x.com", websiteUrl: "https://example.com", totalManga: 3, totalViews: 2_640_000, totalLikes: 201_000, followers: 74_900, revenue: 9_310, isVerified: true, rank: 3, joinedAt: daysAgo(410) },
+    { type: "studio", city: "Ranchi", state: "Jharkhand", isRegisteredStudio: true, name: "Kalpa Comics", studioName: "Kalpa Comics", avatar: img("cr-aarav", 200, 200), banner: img("cr-aarav-b", 1400, 400), bio: "Retelling Indian myths in manga form, one panel at a time.", twitterUrl: "https://x.com", websiteUrl: "https://example.com", totalManga: 3, totalViews: 2_640_000, totalLikes: 201_000, followers: 74_900, revenue: 9_310, isVerified: true, rank: 3, joinedAt: daysAgo(410) },
     { name: "Sakura Nishi", studioName: "Night Bloom", avatar: img("cr-sakura", 200, 200), banner: img("cr-sakura-b", 1400, 400), bio: "Horror, mysteries and things that knock at 3 a.m.", totalManga: 2, totalViews: 1_980_000, totalLikes: 143_000, followers: 51_300, revenue: 6_740, isVerified: false, rank: 4, joinedAt: daysAgo(300) },
     { name: "Ryu Nakamura", studioName: "Orbit Ink", avatar: img("cr-ryu", 200, 200), banner: img("cr-ryu-b", 1400, 400), bio: "Sci-fi and sports. Mostly about people who refuse to lose.", totalManga: 2, totalViews: 1_420_000, totalLikes: 98_000, followers: 38_600, revenue: 4_980, isVerified: false, rank: 5, joinedAt: daysAgo(190) },
   ]).returning();
@@ -64,7 +64,7 @@ async function main() {
     { title: "Crimson Thread", creatorId: c1, genre: "Action", tags: ["swords", "revenge", "found family"], description: "A swordswoman bound by a red thread of fate must cut through an empire to find the one who tied it.", views: 2_140_000, likes: 158_000, rating: 4.9, isFeatured: true, weeklyRank: 1, monthlyRank: 1, status: "ongoing" },
     { title: "Lanterns After Rain", creatorId: c2, genre: "Romance", tags: ["slow burn", "school"], description: "Two strangers share an umbrella every rainy Tuesday. Neither knows the other's name.", views: 1_760_000, likes: 141_000, rating: 4.8, isFeatured: true, weeklyRank: 2, monthlyRank: 2, status: "ongoing" },
     { title: "Shakti: The Ninth Night", creatorId: c3, genre: "Mythology", tags: ["gods", "festival", "epic"], description: "On the ninth night of the festival, a village girl wakes with a goddess's voice in her head.", views: 1_390_000, likes: 117_000, rating: 4.8, isFeatured: true, weeklyRank: 3, monthlyRank: 3, status: "ongoing" },
-    { title: "The 3 A.M. Tenant", creatorId: c4, genre: "Horror", tags: ["apartment", "ghost"], description: "The rent is suspiciously cheap. The previous tenant never moved out.", views: 1_120_000, likes: 86_000, rating: 4.6, weeklyRank: 4, monthlyRank: 5, status: "ongoing" },
+    { isMature: true, title: "The 3 A.M. Tenant", creatorId: c4, genre: "Horror", tags: ["apartment", "ghost"], description: "The rent is suspiciously cheap. The previous tenant never moved out.", views: 1_120_000, likes: 86_000, rating: 4.6, weeklyRank: 4, monthlyRank: 5, status: "ongoing" },
     { title: "Ashfall Knights", creatorId: c1, genre: "Fantasy", tags: ["dragons", "war"], description: "After the last dragon dies, its ashes start whispering to the knights who killed it.", views: 1_040_000, likes: 79_000, rating: 4.5, weeklyRank: 5, monthlyRank: 4, status: "ongoing" },
     { title: "Orbit 77", creatorId: c5, genre: "Sci-Fi", tags: ["space", "survival"], description: "A cleaning robot on a dead space station is the only one who remembers what happened.", views: 860_000, likes: 64_000, rating: 4.5, weeklyRank: 6, monthlyRank: 7, status: "ongoing" },
     { title: "Chai & Chapters", creatorId: c3, genre: "Slice of Life", tags: ["cafe", "books", "cozy"], description: "A tiny bookshop-café in the hills and the regulars who keep it alive.", views: 720_000, likes: 59_000, rating: 4.7, weeklyRank: 7, monthlyRank: 6, status: "ongoing" },
@@ -109,15 +109,15 @@ async function main() {
 
   console.log("Seeding users…");
   const users = await db.insert(usersTable).values([
-    { username: "shadow_reader", email: "reader@surituk.demo", displayName: "Shadow Reader", avatar: img("user1", 100, 100), bio: "Reads in the dark. Ranks everything.", points: 12_480, weeklyPoints: 920, monthlyPoints: 3_410, rank: 1, completedManga: 34, joinedAt: daysAgo(400) },
-    { username: "neon_dreamer", displayName: "Neon Dreamer", avatar: img("user2", 100, 100), bio: "Sci-fi and romance, no in-between.", points: 9_870, weeklyPoints: 760, monthlyPoints: 2_880, rank: 2, completedManga: 21, joinedAt: daysAgo(310) },
-    { username: "midnight_ink", displayName: "Midnight Ink", avatar: img("user3", 100, 100), bio: "Aspiring artist. Collecting panels.", points: 7_340, weeklyPoints: 540, monthlyPoints: 1_960, rank: 3, completedManga: 15, joinedAt: daysAgo(150) },
+    { onboarded: true, isAdult: true, favoriteGenres: ["Action", "Fantasy"], username: "shadow_reader", email: "reader@surituk.demo", displayName: "Shadow Reader", avatar: img("user1", 100, 100), bio: "Reads in the dark. Ranks everything.", points: 12_480, weeklyPoints: 920, monthlyPoints: 3_410, rank: 1, completedManga: 34, joinedAt: daysAgo(400) },
+    { onboarded: true, username: "neon_dreamer", displayName: "Neon Dreamer", avatar: img("user2", 100, 100), bio: "Sci-fi and romance, no in-between.", points: 9_870, weeklyPoints: 760, monthlyPoints: 2_880, rank: 2, completedManga: 21, joinedAt: daysAgo(310) },
+    { onboarded: true, username: "midnight_ink", displayName: "Midnight Ink", avatar: img("user3", 100, 100), bio: "Aspiring artist. Collecting panels.", points: 7_340, weeklyPoints: 540, monthlyPoints: 1_960, rank: 3, completedManga: 15, joinedAt: daysAgo(150) },
   ]).returning();
   const [u1, u2, u3] = users.map(u => u.id);
 
   // A demo creator login (email OTP) that owns Hiroshi Takeda's studio.
   await db.insert(usersTable).values({
-    username: "hiroshi", email: "creator@surituk.demo", displayName: "Hiroshi Takeda",
+    onboarded: true, username: "hiroshi", email: "creator@surituk.demo", displayName: "Hiroshi Takeda",
     avatar: img("cr-hiroshi", 200, 200), role: "creator", creatorId: c1,
   });
   await db.update(creatorsTable).set({ upiId: "hiroshi@okaxis", payoutName: "Hiroshi Takeda" }).where(eq(creatorsTable.id, c1));

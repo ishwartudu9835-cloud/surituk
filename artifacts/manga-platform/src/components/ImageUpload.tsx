@@ -3,8 +3,8 @@ import { ImagePlus, Loader2, X } from "lucide-react";
 import { uploadFiles } from "@/lib/api";
 
 /** Single image picker that uploads immediately and returns the URL. */
-export function ImageUpload({ value, onChange, label = "Upload cover", aspect = "aspect-[3/4]" }: {
-  value: string; onChange: (url: string) => void; label?: string; aspect?: string;
+export function ImageUpload({ value, onChange, label = "Upload cover", aspect = "aspect-[3/4]", endpoint = "/uploads/image", rounded = "rounded-xl" }: {
+  value: string; onChange: (url: string) => void; label?: string; aspect?: string; endpoint?: string; rounded?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [pct, setPct] = useState<number | null>(null);
@@ -14,7 +14,7 @@ export function ImageUpload({ value, onChange, label = "Upload cover", aspect = 
     if (!file) return;
     setErr(""); setPct(0);
     try {
-      const { url } = await uploadFiles<{ url: string }>("/uploads/image", "file", [file], setPct);
+      const { url } = await uploadFiles<{ url: string }>(endpoint, "file", [file], setPct);
       onChange(url);
     } catch (e) { setErr((e as Error).message); }
     finally { setPct(null); }
@@ -26,7 +26,7 @@ export function ImageUpload({ value, onChange, label = "Upload cover", aspect = 
         onClick={() => input.current?.click()}
         onDragOver={e => e.preventDefault()}
         onDrop={e => { e.preventDefault(); pick(e.dataTransfer.files[0]); }}
-        className={`relative ${aspect} w-full max-w-[220px] rounded-xl border-2 border-dashed border-border hover:border-primary/60 bg-card/40 cursor-pointer overflow-hidden flex items-center justify-center transition-colors`}
+        className={`relative ${aspect} w-full max-w-[220px] ${rounded} border-2 border-dashed border-border hover:border-primary/60 bg-card/40 cursor-pointer overflow-hidden flex items-center justify-center transition-colors`}
       >
         {value ? (
           <>

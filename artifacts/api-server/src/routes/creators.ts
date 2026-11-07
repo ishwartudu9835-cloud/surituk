@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
+import { canManage } from "../lib/visibility";
 import { db, creatorsTable, mangaTable } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -16,11 +17,17 @@ function formatCreator(c: typeof creatorsTable.$inferSelect) {
     totalViews: c.totalViews,
     totalLikes: c.totalLikes,
     followers: c.followers,
-    revenue: c.revenue ?? null,
+    revenue: null,
+    type: c.type,
+    status: c.status,
+    city: c.city ?? null,
+    state: c.state ?? null,
+    isRegisteredStudio: c.isRegisteredStudio,
     socialLinks: {
       twitter: c.twitterUrl ?? null,
       instagram: c.instagramUrl ?? null,
       website: c.websiteUrl ?? null,
+      youtube: c.youtubeUrl ?? null,
     },
     isVerified: c.isVerified,
     rank: c.rank ?? null,
@@ -30,20 +37,20 @@ function formatCreator(c: typeof creatorsTable.$inferSelect) {
 
 router.get("/creators", async (req, res): Promise<void> => {
   const limit = Math.min(parseInt((req.query.limit as string) || "10", 10), 50);
-  const rows = await db.select().from(creatorsTable).orderBy(desc(creatorsTable.followers)).limit(limit);
+  const rows = await db.select().from(creatorsTable).where(eq(creatorsTable.status, "approved")).orderBy(desc(creatorsTable.followers)).limit(limit);
   res.json(rows.map(formatCreator));
 });
 
 router.get("/creators/top", async (req, res): Promise<void> => {
   const { period = "monthly", limit: lim = "10" } = req.query as Record<string, string>;
   const limit = Math.min(parseInt(lim, 10) || 10, 50);
-  const rows = await db.select().from(creatorsTable).orderBy(desc(creatorsTable.totalViews)).limit(limit);
+  const rows = await db.select().from(creatorsTable).where(eq(creatorsTable.status, "approved")).orderBy(desc(creatorsTable.totalViews)).limit(limit);
   res.json(rows.map(formatCreator));
 });
 
 router.get("/creators/spotlight", async (req, res): Promise<void> => {
   const [row] = await db.select().from(creatorsTable)
-    .where(eq(creatorsTable.isVerified, true))
+    .where(and(eq(creatorsTable.isVerified, true), eq(creatorsTable.status, "approved")))
     .orderBy(desc(creatorsTable.totalViews))
     .limit(1);
   if (!row) { res.status(404).json({ error: "No creator found" }); return; }
@@ -55,7 +62,7 @@ router.get("/creators/:creatorId", async (req, res): Promise<void> => {
   const creatorId = parseInt(raw, 10);
   if (isNaN(creatorId)) { res.status(400).json({ error: "Invalid creator id" }); return; }
   const [row] = await db.select().from(creatorsTable).where(eq(creatorsTable.id, creatorId));
-  if (!row) { res.status(404).json({ error: "Creator not found" }); return; }
+  if (!row || (row.status !== "approved" && !canManage(req.user, row.id))) { res.status(404).json({ error: "Creator not found" }); return; }
   res.json(formatCreator(row));
 });
 
@@ -99,6 +106,7 @@ router.get("/creators/:creatorId/revenue", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.creatorId) ? req.params.creatorId[0] : req.params.creatorId;
   const creatorId = parseInt(raw, 10);
   if (isNaN(creatorId)) { res.status(400).json({ error: "Invalid creator id" }); return; }
+  if (!canManage(req.user, creatorId)) { res.status(403).json({ error: "Private" }); return; }
 
   const [creator] = await db.select().from(creatorsTable).where(eq(creatorsTable.id, creatorId));
   if (!creator) { res.status(404).json({ error: "Creator not found" }); return; }

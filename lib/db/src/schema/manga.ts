@@ -20,6 +20,8 @@ export const mangaTable = pgTable("manga", {
   rating: real("rating").default(0),
   isFeatured: boolean("is_featured").notNull().default(false),
   isSponsored: boolean("is_sponsored").notNull().default(false),
+  isPublished: boolean("is_published").notNull().default(true),
+  isMature: boolean("is_mature").notNull().default(false),
   weeklyRank: integer("weekly_rank"),
   monthlyRank: integer("monthly_rank"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

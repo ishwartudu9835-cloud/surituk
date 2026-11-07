@@ -4,7 +4,9 @@ import {
   db, mangaTable, chaptersTable, creatorsTable, genresTable, bookmarksTable, readingHistoryTable, communityPostsTable,
   type Manga,
 } from "@workspace/db";
-import { requireCreator } from "../lib/auth";
+import { requireCreator, isApprovedCreator } from "../lib/auth";
+import { notifySubscribers } from "../lib/notify";
+import { desc } from "drizzle-orm";
 
 /** Creator Studio: edit / delete your own series and chapters. */
 const router: IRouter = Router();
@@ -25,6 +27,18 @@ async function ownedSeries(req: Request, res: Response, id: number): Promise<Man
   return m;
 }
 
+/** All of my series, drafts included. */
+router.get("/studio/my-series", requireCreator, async (req, res): Promise<void> => {
+  const rows = await db.select().from(mangaTable).where(eq(mangaTable.creatorId, req.user!.creatorId!)).orderBy(desc(mangaTable.updatedAt));
+  res.json(rows.map(r => ({ ...r, tags: r.tags ?? [], createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() })));
+});
+
+router.get("/studio/series/:id", requireCreator, async (req, res): Promise<void> => {
+  const m = await ownedSeries(req, res, num(req, "id"));
+  if (!m) return;
+  res.json({ ...m, tags: m.tags ?? [], createdAt: m.createdAt.toISOString(), updatedAt: m.updatedAt.toISOString() });
+});
+
 router.patch("/studio/series/:id", requireCreator, async (req, res): Promise<void> => {
   const m = await ownedSeries(req, res, num(req, "id"));
   if (!m) return;
@@ -41,16 +55,34 @@ router.patch("/studio/series/:id", requireCreator, async (req, res): Promise<voi
   if (b.coverImage !== undefined) { if (!isUrl(b.coverImage)) { res.status(400).json({ error: "Cover image is required" }); return; } patch.coverImage = b.coverImage; }
   if (b.bannerImage !== undefined) patch.bannerImage = isUrl(b.bannerImage) ? b.bannerImage : null;
   if (b.status !== undefined) { if (!STATUSES.includes(b.status)) { res.status(400).json({ error: "Invalid status" }); return; } patch.status = b.status; }
+  if (typeof b.isMature === "boolean") patch.isMature = b.isMature;
+  if (typeof b.isPublished === "boolean" && b.isPublished !== m.isPublished) {
+    if (b.isPublished && !isApprovedCreator(req) && req.user!.role !== "admin") { res.status(403).json({ error: "You can publish after your creator account is approved. Until then, series stay as private drafts." }); return; }
+    if (b.isPublished) {
+      const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(chaptersTable).where(eq(chaptersTable.mangaId, m.id));
+      if (n === 0) { res.status(400).json({ error: "Add at least one chapter before publishing" }); return; }
+    }
+    patch.isPublished = b.isPublished;
+  }
   if (Array.isArray(b.tags)) patch.tags = b.tags.map((t: unknown) => String(t).trim().slice(0, 30)).filter(Boolean).slice(0, 8);
   if (b.genre !== undefined && b.genre !== m.genre) {
     const [g] = await db.select({ id: genresTable.id }).from(genresTable).where(eq(genresTable.name, String(b.genre)));
     if (!g) { res.status(400).json({ error: "Unknown genre" }); return; }
     patch.genre = String(b.genre);
-    await db.update(genresTable).set({ mangaCount: sql`greatest(${genresTable.mangaCount} - 1, 0)` }).where(eq(genresTable.name, m.genre));
-    await db.update(genresTable).set({ mangaCount: sql`${genresTable.mangaCount} + 1` }).where(eq(genresTable.name, patch.genre));
+    if (m.isPublished) await db.update(genresTable).set({ mangaCount: sql`greatest(${genresTable.mangaCount} - 1, 0)` }).where(eq(genresTable.name, m.genre));
+    if (m.isPublished) await db.update(genresTable).set({ mangaCount: sql`${genresTable.mangaCount} + 1` }).where(eq(genresTable.name, patch.genre));
   }
 
   const [updated] = await db.update(mangaTable).set(patch).where(eq(mangaTable.id, m.id)).returning();
+  if (patch.isPublished !== undefined) {
+    const d = patch.isPublished ? 1 : -1;
+    await db.update(creatorsTable).set({ totalManga: sql`greatest(${creatorsTable.totalManga} + ${d}, 0)` }).where(eq(creatorsTable.id, m.creatorId));
+    await db.update(genresTable).set({ mangaCount: sql`greatest(${genresTable.mangaCount} + ${d}, 0)` }).where(eq(genresTable.name, updated.genre));
+    if (patch.isPublished) {
+      const [author] = await db.select({ name: creatorsTable.name }).from(creatorsTable).where(eq(creatorsTable.id, m.creatorId));
+      void notifySubscribers(m.creatorId, `${author?.name ?? "A creator you follow"} published a new series: "${updated.title}"`, m.id);
+    }
+  }
   res.json({ ...updated, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
 });
 
@@ -63,8 +95,10 @@ router.delete("/studio/series/:id", requireCreator, async (req, res): Promise<vo
     await tx.delete(chaptersTable).where(eq(chaptersTable.mangaId, m.id));
     await tx.update(communityPostsTable).set({ relatedMangaId: null }).where(eq(communityPostsTable.relatedMangaId, m.id));
     await tx.delete(mangaTable).where(eq(mangaTable.id, m.id));
-    await tx.update(creatorsTable).set({ totalManga: sql`greatest(${creatorsTable.totalManga} - 1, 0)` }).where(eq(creatorsTable.id, m.creatorId));
-    await tx.update(genresTable).set({ mangaCount: sql`greatest(${genresTable.mangaCount} - 1, 0)` }).where(eq(genresTable.name, m.genre));
+    if (m.isPublished) {
+      await tx.update(creatorsTable).set({ totalManga: sql`greatest(${creatorsTable.totalManga} - 1, 0)` }).where(eq(creatorsTable.id, m.creatorId));
+      await tx.update(genresTable).set({ mangaCount: sql`greatest(${genresTable.mangaCount} - 1, 0)` }).where(eq(genresTable.name, m.genre));
+    }
   });
   res.json({ ok: true });
 });

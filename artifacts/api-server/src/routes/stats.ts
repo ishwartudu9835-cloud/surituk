@@ -6,10 +6,10 @@ const router: IRouter = Router();
 
 router.get("/stats/platform", async (req, res): Promise<void> => {
   const [[mangaCount], [creatorCount], [userCount], [chapterCount], [viewSum], [contestCount]] = await Promise.all([
-    db.select({ count: sql<number>`count(*)` }).from(mangaTable),
-    db.select({ count: sql<number>`count(*)` }).from(creatorsTable),
+    db.select({ count: sql<number>`count(*)` }).from(mangaTable).where(sql`${mangaTable.isPublished} = true`),
+    db.select({ count: sql<number>`count(*)` }).from(creatorsTable).where(sql`${creatorsTable.status} = 'approved'`),
     db.select({ count: sql<number>`count(*)` }).from(usersTable),
-    db.select({ count: sql<number>`count(*)` }).from(chaptersTable),
+    db.select({ count: sql<number>`count(*)` }).from(chaptersTable).innerJoin(mangaTable, sql`${chaptersTable.mangaId} = ${mangaTable.id}`).where(sql`${mangaTable.isPublished} = true`),
     db.select({ total: sql<number>`coalesce(sum(views),0)` }).from(mangaTable),
     db.select({ count: sql<number>`count(*)` }).from(contestsTable),
   ]);

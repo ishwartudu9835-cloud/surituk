@@ -1,5 +1,31 @@
 
-\restrict BghqZ5mhP2MzauXCLRccTW2Vx3nPEGdKnLAS3doKiHuSurZAWAnzG0JmA0hZCal
+\restrict eB5CB4r5jvadj3c0OarWzRYkjevgeEiCkU7d1MqpnkXhxCQ3l0noXL6FfIOvI4C
+
+CREATE TABLE public.admin_audit_log (
+    id integer NOT NULL,
+    admin_user_id integer NOT NULL,
+    action text NOT NULL,
+    target_type text,
+    target_id integer,
+    details jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE SEQUENCE public.admin_audit_log_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.admin_audit_log_id_seq OWNED BY public.admin_audit_log.id;
+
+CREATE TABLE public.app_settings (
+    key text NOT NULL,
+    value text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 CREATE TABLE public.bookmarks (
     id integer NOT NULL,
@@ -107,6 +133,60 @@ CREATE SEQUENCE public.contests_id_seq
 
 ALTER SEQUENCE public.contests_id_seq OWNED BY public.contests.id;
 
+CREATE TABLE public.creator_applications (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    creator_id integer,
+    type text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    legal_name text NOT NULL,
+    pen_name text NOT NULL,
+    email text NOT NULL,
+    mobile text NOT NULL,
+    mobile_verified boolean DEFAULT false NOT NULL,
+    city text NOT NULL,
+    state text NOT NULL,
+    portfolio_url text,
+    sample_images text[] DEFAULT '{}'::text[] NOT NULL,
+    social_links jsonb DEFAULT '{}'::jsonb NOT NULL,
+    verification_code text NOT NULL,
+    code_verified boolean DEFAULT false NOT NULL,
+    original_work_accepted boolean DEFAULT false NOT NULL,
+    studio_name text,
+    studio_description text,
+    studio_logo text,
+    studio_banner text,
+    website text,
+    udyam_number text,
+    gst_number text,
+    team_members jsonb DEFAULT '[]'::jsonb NOT NULL,
+    review_note text,
+    reviewed_by integer,
+    reviewed_at timestamp with time zone,
+    invite_token text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE SEQUENCE public.creator_applications_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.creator_applications_id_seq OWNED BY public.creator_applications.id;
+
+CREATE TABLE public.creator_invites (
+    token text NOT NULL,
+    created_by integer NOT NULL,
+    note text,
+    uses_left integer DEFAULT 1 NOT NULL,
+    expires_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
 CREATE TABLE public.creator_subscriptions (
     id integer NOT NULL,
     user_id integer NOT NULL,
@@ -134,6 +214,14 @@ CREATE TABLE public.creators (
     twitter_url text,
     instagram_url text,
     website_url text,
+    youtube_url text,
+    type text DEFAULT 'individual'::text NOT NULL,
+    status text DEFAULT 'approved'::text NOT NULL,
+    city text,
+    state text,
+    is_registered_studio boolean DEFAULT false NOT NULL,
+    referral_code text,
+    owner_user_id integer,
     total_manga integer DEFAULT 0 NOT NULL,
     total_views integer DEFAULT 0 NOT NULL,
     total_likes integer DEFAULT 0 NOT NULL,
@@ -192,6 +280,8 @@ CREATE TABLE public.manga (
     rating real DEFAULT 0,
     is_featured boolean DEFAULT false NOT NULL,
     is_sponsored boolean DEFAULT false NOT NULL,
+    is_published boolean DEFAULT true NOT NULL,
+    is_mature boolean DEFAULT false NOT NULL,
     weekly_rank integer,
     monthly_rank integer,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -341,7 +431,9 @@ CREATE TABLE public.reading_history (
     id integer NOT NULL,
     user_id integer NOT NULL,
     manga_id integer NOT NULL,
-    last_chapter integer DEFAULT 1 NOT NULL,
+    last_chapter real DEFAULT 1 NOT NULL,
+    last_chapter_id integer,
+    last_page integer DEFAULT 0 NOT NULL,
     progress real DEFAULT 0 NOT NULL,
     is_completed boolean DEFAULT false NOT NULL,
     last_read_at timestamp with time zone DEFAULT now() NOT NULL
@@ -356,6 +448,28 @@ CREATE SEQUENCE public.reading_history_id_seq
     CACHE 1;
 
 ALTER SEQUENCE public.reading_history_id_seq OWNED BY public.reading_history.id;
+
+CREATE TABLE public.team_members (
+    id integer NOT NULL,
+    creator_id integer NOT NULL,
+    user_id integer,
+    name text NOT NULL,
+    email text NOT NULL,
+    role text NOT NULL,
+    status text DEFAULT 'invited'::text NOT NULL,
+    invite_token text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE SEQUENCE public.team_members_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.team_members_id_seq OWNED BY public.team_members.id;
 
 CREATE TABLE public.users (
     id integer NOT NULL,
@@ -372,6 +486,12 @@ CREATE TABLE public.users (
     monthly_points integer DEFAULT 0 NOT NULL,
     rank integer,
     completed_manga integer DEFAULT 0 NOT NULL,
+    is_adult boolean DEFAULT false NOT NULL,
+    favorite_genres text[] DEFAULT '{}'::text[] NOT NULL,
+    ui_language text DEFAULT 'en'::text NOT NULL,
+    onboarded boolean DEFAULT false NOT NULL,
+    referred_by integer,
+    last_ip text,
     joined_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
@@ -385,6 +505,27 @@ CREATE SEQUENCE public.users_id_seq
 
 ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
+CREATE TABLE public.views_daily (
+    id integer NOT NULL,
+    day date NOT NULL,
+    creator_id integer NOT NULL,
+    manga_id integer NOT NULL,
+    chapter_id integer NOT NULL,
+    count integer DEFAULT 0 NOT NULL
+);
+
+CREATE SEQUENCE public.views_daily_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.views_daily_id_seq OWNED BY public.views_daily.id;
+
+ALTER TABLE ONLY public.admin_audit_log ALTER COLUMN id SET DEFAULT nextval('public.admin_audit_log_id_seq'::regclass);
+
 ALTER TABLE ONLY public.bookmarks ALTER COLUMN id SET DEFAULT nextval('public.bookmarks_id_seq'::regclass);
 
 ALTER TABLE ONLY public.chapters ALTER COLUMN id SET DEFAULT nextval('public.chapters_id_seq'::regclass);
@@ -394,6 +535,8 @@ ALTER TABLE ONLY public.community_posts ALTER COLUMN id SET DEFAULT nextval('pub
 ALTER TABLE ONLY public.contest_winners ALTER COLUMN id SET DEFAULT nextval('public.contest_winners_id_seq'::regclass);
 
 ALTER TABLE ONLY public.contests ALTER COLUMN id SET DEFAULT nextval('public.contests_id_seq'::regclass);
+
+ALTER TABLE ONLY public.creator_applications ALTER COLUMN id SET DEFAULT nextval('public.creator_applications_id_seq'::regclass);
 
 ALTER TABLE ONLY public.creator_subscriptions ALTER COLUMN id SET DEFAULT nextval('public.creator_subscriptions_id_seq'::regclass);
 
@@ -415,7 +558,17 @@ ALTER TABLE ONLY public.products ALTER COLUMN id SET DEFAULT nextval('public.pro
 
 ALTER TABLE ONLY public.reading_history ALTER COLUMN id SET DEFAULT nextval('public.reading_history_id_seq'::regclass);
 
+ALTER TABLE ONLY public.team_members ALTER COLUMN id SET DEFAULT nextval('public.team_members_id_seq'::regclass);
+
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+
+ALTER TABLE ONLY public.views_daily ALTER COLUMN id SET DEFAULT nextval('public.views_daily_id_seq'::regclass);
+
+ALTER TABLE ONLY public.admin_audit_log
+    ADD CONSTRAINT admin_audit_log_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.app_settings
+    ADD CONSTRAINT app_settings_pkey PRIMARY KEY (key);
 
 ALTER TABLE ONLY public.bookmarks
     ADD CONSTRAINT bookmarks_pkey PRIMARY KEY (id);
@@ -432,11 +585,20 @@ ALTER TABLE ONLY public.contest_winners
 ALTER TABLE ONLY public.contests
     ADD CONSTRAINT contests_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.creator_applications
+    ADD CONSTRAINT creator_applications_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.creator_invites
+    ADD CONSTRAINT creator_invites_pkey PRIMARY KEY (token);
+
 ALTER TABLE ONLY public.creator_subscriptions
     ADD CONSTRAINT creator_subscriptions_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.creators
     ADD CONSTRAINT creators_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.creators
+    ADD CONSTRAINT creators_referral_code_unique UNIQUE (referral_code);
 
 ALTER TABLE ONLY public.genres
     ADD CONSTRAINT genres_pkey PRIMARY KEY (id);
@@ -468,6 +630,12 @@ ALTER TABLE ONLY public.products
 ALTER TABLE ONLY public.reading_history
     ADD CONSTRAINT reading_history_pkey PRIMARY KEY (id);
 
+ALTER TABLE ONLY public.team_members
+    ADD CONSTRAINT team_members_invite_token_unique UNIQUE (invite_token);
+
+ALTER TABLE ONLY public.team_members
+    ADD CONSTRAINT team_members_pkey PRIMARY KEY (id);
+
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_email_unique UNIQUE (email);
 
@@ -480,7 +648,12 @@ ALTER TABLE ONLY public.users
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_username_unique UNIQUE (username);
 
+ALTER TABLE ONLY public.views_daily
+    ADD CONSTRAINT views_daily_pkey PRIMARY KEY (id);
+
 CREATE UNIQUE INDEX creator_subscriptions_user_creator_idx ON public.creator_subscriptions USING btree (user_id, creator_id);
+
+CREATE UNIQUE INDEX views_daily_day_chapter_idx ON public.views_daily USING btree (day, chapter_id);
 
 ALTER TABLE ONLY public.bookmarks
     ADD CONSTRAINT bookmarks_manga_id_manga_id_fk FOREIGN KEY (manga_id) REFERENCES public.manga(id);
@@ -500,11 +673,14 @@ ALTER TABLE ONLY public.contest_winners
 ALTER TABLE ONLY public.contest_winners
     ADD CONSTRAINT contest_winners_user_id_users_id_fk FOREIGN KEY (user_id) REFERENCES public.users(id);
 
-ALTER TABLE ONLY public.creator_subscriptions
-    ADD CONSTRAINT creator_subscriptions_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.creators(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.creator_applications
+    ADD CONSTRAINT creator_applications_user_id_users_id_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.creator_subscriptions
-    ADD CONSTRAINT creator_subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+    ADD CONSTRAINT creator_subscriptions_creator_id_creators_id_fk FOREIGN KEY (creator_id) REFERENCES public.creators(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.creator_subscriptions
+    ADD CONSTRAINT creator_subscriptions_user_id_users_id_fk FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.manga
     ADD CONSTRAINT manga_creator_id_creators_id_fk FOREIGN KEY (creator_id) REFERENCES public.creators(id);
@@ -533,5 +709,8 @@ ALTER TABLE ONLY public.reading_history
 ALTER TABLE ONLY public.reading_history
     ADD CONSTRAINT reading_history_user_id_users_id_fk FOREIGN KEY (user_id) REFERENCES public.users(id);
 
-\unrestrict BghqZ5mhP2MzauXCLRccTW2Vx3nPEGdKnLAS3doKiHuSurZAWAnzG0JmA0hZCal
+ALTER TABLE ONLY public.team_members
+    ADD CONSTRAINT team_members_creator_id_creators_id_fk FOREIGN KEY (creator_id) REFERENCES public.creators(id) ON DELETE CASCADE;
+
+\unrestrict eB5CB4r5jvadj3c0OarWzRYkjevgeEiCkU7d1MqpnkXhxCQ3l0noXL6FfIOvI4C
 

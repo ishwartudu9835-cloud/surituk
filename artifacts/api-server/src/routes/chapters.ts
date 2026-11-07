@@ -2,14 +2,29 @@ import { Router, type IRouter } from "express";
 import { desc, eq, sql } from "drizzle-orm";
 import { db, chaptersTable, mangaTable } from "@workspace/db";
 import { requireCreator } from "../lib/auth";
+import { canManage, visibleManga } from "../lib/visibility";
+import { creatorsTable } from "@workspace/db";
 import { notifySubscribers } from "../lib/notify";
 
 const router: IRouter = Router();
+
+/** Series must be published by an approved creator (and 18+ only for adults), unless you own it. */
+async function seriesReadable(req: import("express").Request, mangaId: number) {
+  const [m] = await db.select({ creatorId: mangaTable.creatorId, isPublished: mangaTable.isPublished, isMature: mangaTable.isMature, status: creatorsTable.status })
+    .from(mangaTable).leftJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id)).where(eq(mangaTable.id, mangaId));
+  if (!m) return false;
+  if (canManage(req.user, m.creatorId)) return true;
+  if (!m.isPublished || m.status !== "approved") return false;
+  if (m.isMature && !req.user?.isAdult) return false;
+  return true;
+}
 
 router.get("/manga/:mangaId/chapters", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.mangaId) ? req.params.mangaId[0] : req.params.mangaId;
   const mangaId = parseInt(raw, 10);
   if (isNaN(mangaId)) { res.status(400).json({ error: "Invalid manga id" }); return; }
+
+  if (!(await seriesReadable(req, mangaId))) { res.json([]); return; }
 
   const rows = await db
     .select({
@@ -72,8 +87,8 @@ router.post("/manga/:mangaId/chapters", requireCreator, async (req, res): Promis
     .set({ chapterCount: sql`${mangaTable.chapterCount} + 1` })
     .where(eq(mangaTable.id, mangaId));
 
-  const [series] = await db.select({ title: mangaTable.title, creatorId: mangaTable.creatorId }).from(mangaTable).where(eq(mangaTable.id, mangaId));
-  if (series) void notifySubscribers(series.creatorId, `New chapter: "${series.title}" — Chapter ${chapterNumber}: ${title}`, mangaId);
+  const [series] = await db.select({ title: mangaTable.title, creatorId: mangaTable.creatorId, isPublished: mangaTable.isPublished }).from(mangaTable).where(eq(mangaTable.id, mangaId));
+  if (series?.isPublished) void notifySubscribers(series.creatorId, `New chapter: "${series.title}" — Chapter ${chapterNumber}: ${title}`, mangaId);
 
   res.status(201).json({
     ...ch,
@@ -109,7 +124,7 @@ router.get("/manga/:mangaId/chapters/:chapterId", async (req, res): Promise<void
     .where(eq(chaptersTable.id, chapterId));
 
   if (!row) { res.status(404).json({ error: "Chapter not found" }); return; }
-  await db.update(chaptersTable).set({ views: sql`${chaptersTable.views} + 1` }).where(eq(chaptersTable.id, chapterId));
+  if (row.mangaId !== mangaId || !(await seriesReadable(req, row.mangaId))) { res.status(404).json({ error: "Chapter not found" }); return; }
 
   res.json({
     ...row,
@@ -135,7 +150,9 @@ router.get("/chapters/latest", async (req, res): Promise<void> => {
       createdAt: chaptersTable.createdAt,
     })
     .from(chaptersTable)
-    .leftJoin(mangaTable, eq(chaptersTable.mangaId, mangaTable.id))
+    .innerJoin(mangaTable, eq(chaptersTable.mangaId, mangaTable.id))
+    .innerJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id))
+    .where(visibleManga(req.user))
     .orderBy(desc(chaptersTable.createdAt))
     .limit(limit);
 

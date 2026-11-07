@@ -45,6 +45,17 @@ export async function api<T = unknown>(path: string, opts: { method?: string; bo
 }
 
 /** Upload with progress (fetch can't report upload progress). */
+/** Referral code from a creator's link (?ref=...), remembered until signup. */
+export function rememberRef() {
+  try {
+    const r = new URLSearchParams(window.location.search).get("ref");
+    if (r && /^[a-z0-9]{3,40}$/i.test(r)) localStorage.setItem("surituk.ref", r);
+  } catch { /* ignore */ }
+}
+export function getRef(): string | undefined {
+  try { return localStorage.getItem("surituk.ref") ?? undefined; } catch { return undefined; }
+}
+
 export function uploadFiles<T>(path: string, field: string, files: File[], onProgress?: (pct: number) => void): Promise<T> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
@@ -71,10 +82,26 @@ export const rupees = (paise: number | null | undefined) =>
 /* ---------- Shared types ---------- */
 
 export type Me = {
-  id: number; username: string; displayName: string; email: string | null; avatar: string;
+  id: number; username: string; displayName: string; email: string | null; avatar: string; bio: string | null;
   role: "reader" | "creator" | "admin"; creatorId: number | null;
-  creator: { id: number; name: string; studioName: string | null; bio: string | null; avatar: string; banner: string | null; upiId: string | null; payoutName: string | null } | null;
+  isAdult: boolean; favoriteGenres: string[]; uiLanguage: "en" | "hi"; onboarded: boolean;
+  creator: {
+    id: number; name: string; type: "individual" | "studio"; status: "pending" | "approved" | "suspended" | "banned";
+    studioName: string | null; bio: string | null; avatar: string; banner: string | null; city: string | null; state: string | null;
+    isVerified: boolean; instagramUrl: string | null; twitterUrl: string | null; youtubeUrl: string | null; websiteUrl: string | null;
+  } | null;
 };
+
+export type SeriesCard = {
+  id: number; title: string; coverImage: string; genre: string; chapterCount: number; views: number; likes: number;
+  status: string; isMature: boolean; creatorId: number; creatorName: string | null; creatorType?: string;
+};
+
+export type HistoryItem = SeriesCard & {
+  lastChapter: number; lastChapterId: number | null; lastPage: number; progress: number; isCompleted: boolean; lastReadAt: string;
+};
+
+export const INDIAN_STATES = ["Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry"];
 
 export type Product = {
   id: number; creatorId: number; creatorName: string | null; creatorAvatar: string | null;

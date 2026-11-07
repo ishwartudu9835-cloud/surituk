@@ -1,175 +1,69 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import {
-  useGetMangaLeaderboard,
-  useGetCreatorLeaderboard,
-  getGetMangaLeaderboardQueryKey,
-  getGetCreatorLeaderboardQueryKey,
-} from "@workspace/api-client-react";
-import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { Trophy, Eye, Users, Sparkles, CalendarDays, Calendar, Building2, CheckCircle, BadgeCheck } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trophy, TrendingUp, TrendingDown, Minus, Crown, Medal, Eye, Users, ArrowUp } from "lucide-react";
-import { motion } from "framer-motion";
+import { api } from "@/lib/api";
 
-type Period = "weekly" | "monthly";
+type Tab = "studios" | "new" | "weekly" | "monthly";
+type SeriesRow = { rank: number; kind: "series"; id: number; title: string; coverImage: string; genre: string; creatorId: number; creatorName: string; views: number; periodViews: number; chapterCount: number; isMature: boolean };
+type StudioRow = { rank: number; kind: "studio"; id: number; name: string; avatar: string; city: string | null; state: string | null; followers: number; totalViews: number; totalManga: number; periodViews: number; isVerified: boolean; isRegisteredStudio: boolean };
 
-function TrendIcon({ trend }: { trend: string }) {
-  if (trend === "up") return <TrendingUp className="w-3 h-3 text-green-400" />;
-  if (trend === "down") return <TrendingDown className="w-3 h-3 text-red-400" />;
-  if (trend === "new") return <ArrowUp className="w-3 h-3 text-yellow-400" />;
-  return <Minus className="w-3 h-3 text-muted-foreground" />;
-}
+const TABS: { id: Tab; label: string; icon: React.ReactNode; hint: string }[] = [
+  { id: "studios", label: "Top Studios", icon: <Building2 className="w-4 h-4" />, hint: "Studios with the most reads in the last 30 days" },
+  { id: "new", label: "Top New", icon: <Sparkles className="w-4 h-4" />, hint: "Best series that started in the last 60 days" },
+  { id: "weekly", label: "Weekly Top", icon: <CalendarDays className="w-4 h-4" />, hint: "Most-read series in the last 7 days" },
+  { id: "monthly", label: "Monthly Top", icon: <Calendar className="w-4 h-4" />, hint: "Most-read series in the last 30 days" },
+];
 
-function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <Crown className="w-5 h-5 text-yellow-400" />;
-  if (rank === 2) return <Medal className="w-5 h-5 text-slate-300" />;
-  if (rank === 3) return <Medal className="w-5 h-5 text-amber-600" />;
-  return <span className="text-sm font-bold text-muted-foreground w-5 text-center">{rank}</span>;
-}
+const medal = (r: number) => r === 1 ? "bg-yellow-500 text-black" : r === 2 ? "bg-zinc-300 text-black" : r === 3 ? "bg-amber-700 text-white" : "bg-secondary text-muted-foreground";
+const fmt = (n: number) => n >= 1_000_000 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
 
 export default function Leaderboard() {
-  const [period, setPeriod] = useState<Period>("weekly");
-  const [tab, setTab] = useState<"manga" | "creators">("manga");
-
-  const { data: mangaLb, isLoading: mangaLoading } = useGetMangaLeaderboard(
-    { period, limit: 20 },
-    { query: { queryKey: getGetMangaLeaderboardQueryKey({ period, limit: 20 }) } }
-  );
-  const { data: creatorLb, isLoading: creatorLoading } = useGetCreatorLeaderboard(
-    { period, limit: 10 },
-    { query: { queryKey: getGetCreatorLeaderboardQueryKey({ period, limit: 10 }) } }
-  );
+  const [tab, setTab] = useState<Tab>("weekly");
+  const { data, isLoading } = useQuery({ queryKey: ["leaderboard", tab], queryFn: () => api<(SeriesRow | StudioRow)[]>(`/leaderboards/${tab}`) });
+  const current = TABS.find(t => t.id === tab)!;
 
   return (
-    <div className="container px-4 py-8">
-      {/* Header */}
-      <div className="text-center mb-10">
-        <div className="flex justify-center mb-4">
-          <div className="p-3 rounded-2xl bg-yellow-500/10 border border-yellow-500/20">
-            <Trophy className="w-8 h-8 text-yellow-400" />
-          </div>
-        </div>
-        <h1 className="text-4xl font-bold mb-2">Leaderboard</h1>
-        <p className="text-muted-foreground">The top graphic novels and creators on Surituk</p>
-      </div>
+    <div className="container px-4 py-10">
+      <div className="flex items-center gap-3 mb-2"><Trophy className="w-8 h-8 text-accent" /><h1 className="text-4xl font-bold">Leaderboard</h1></div>
+      <p className="text-muted-foreground mb-8">The most-read graphic novels and studios on Surituk.</p>
 
-      {/* Period toggle */}
-      <div className="flex justify-center gap-2 mb-8">
-        {(["weekly", "monthly"] as Period[]).map(p => (
-          <button
-            key={p}
-            onClick={() => setPeriod(p)}
-            className={`px-5 py-2 rounded-full text-sm font-medium transition-all border ${period === p ? "bg-primary text-primary-foreground border-primary" : "border-white/10 text-muted-foreground hover:border-white/30"}`}
-            data-testid={`button-period-${p}`}
-          >
-            {p === "weekly" ? "Weekly" : "Monthly"}
-          </button>
+      <div className="flex gap-1 mb-2 border-b border-border overflow-x-auto">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} className={`pb-3 px-4 text-sm font-medium border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors ${tab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{t.icon}{t.label}</button>
         ))}
       </div>
+      <p className="text-xs text-muted-foreground mb-6">{current.hint}</p>
 
-      {/* Tab toggle */}
-      <div className="flex gap-2 mb-8 border-b border-white/10">
-        {(["manga", "creators"] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`pb-3 px-4 text-sm font-medium border-b-2 transition-all capitalize ${tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-            data-testid={`tab-${t}`}
-          >
-            {t === "manga" ? "Graphic Novels" : "Creators"}
-          </button>
-        ))}
-      </div>
-
-      {/* Manga leaderboard */}
-      {tab === "manga" && (
-        <div className="space-y-2">
-          {/* Top 3 spotlight */}
-          {!mangaLoading && mangaLb && mangaLb.length >= 3 && (
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              {[mangaLb[1], mangaLb[0], mangaLb[2]].map((entry, i) => (
-                <motion.div
-                  key={entry.mangaId}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className={`relative text-center p-4 rounded-xl border ${i === 1 ? "border-yellow-500/40 bg-yellow-500/5 -mt-4" : "border-white/10 bg-card/30"}`}
-                  data-testid={`card-top-${entry.rank}`}
-                >
-                  <div className="flex justify-center mb-2"><RankBadge rank={entry.rank} /></div>
-                  <Link href={`/manga/${entry.mangaId}`}>
-                    <img src={entry.coverImage} alt={entry.title} className="w-20 h-28 object-cover rounded-lg mx-auto mb-2 border border-white/10" />
-                    <p className="text-sm font-semibold line-clamp-2 hover:text-primary transition-colors">{entry.title}</p>
-                  </Link>
-                  <p className="text-xs text-muted-foreground mt-1">{entry.creatorName}</p>
-                  <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mt-2">
-                    <Eye className="w-3 h-3" />{(entry.views / 1000).toFixed(0)}k
-                  </div>
-                </motion.div>
-              ))}
+      <div className="space-y-2">
+        {isLoading && Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        {data?.map(r => r.kind === "studio" ? (
+          <Link key={`s${r.id}`} href={`/creator/${r.id}`} className="flex items-center gap-4 p-3 rounded-xl border border-border bg-card/40 hover:border-primary/50 transition-colors">
+            <span className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${medal(r.rank)}`}>{r.rank}</span>
+            <img src={r.avatar} alt="" className="w-14 h-14 rounded-xl object-cover" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold flex items-center gap-1.5 truncate">{r.name}{r.isVerified && <CheckCircle className="w-4 h-4 text-primary shrink-0" />}{r.isRegisteredStudio && <BadgeCheck className="w-4 h-4 text-accent shrink-0" />}</p>
+              <p className="text-xs text-muted-foreground">{[r.city, r.state].filter(Boolean).join(", ") || "Studio"} · {r.totalManga} series</p>
             </div>
-          )}
-
-          {mangaLoading
-            ? Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)
-            : mangaLb?.slice(3).map(entry => (
-                <motion.div
-                  key={entry.mangaId}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center gap-4 p-4 rounded-xl border border-white/5 hover:border-white/15 transition-all bg-card/20"
-                  data-testid={`row-manga-${entry.rank}`}
-                >
-                  <div className="w-8 flex justify-center"><RankBadge rank={entry.rank} /></div>
-                  <img src={entry.coverImage} alt={entry.title} className="w-10 h-14 object-cover rounded" />
-                  <div className="flex-1">
-                    <Link href={`/manga/${entry.mangaId}`} className="font-medium hover:text-primary transition-colors text-sm">{entry.title}</Link>
-                    <p className="text-xs text-muted-foreground">{entry.creatorName}</p>
-                  </div>
-                  <div className="text-right hidden md:block">
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Eye className="w-3.5 h-3.5" />{entry.views.toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs">
-                    <TrendIcon trend={entry.trend} />
-                    {(entry.change ?? 0) > 0 && <span className="text-muted-foreground">{entry.change}</span>}
-                  </div>
-                </motion.div>
-              ))}
-        </div>
-      )}
-
-      {/* Creator leaderboard */}
-      {tab === "creators" && (
-        <div className="space-y-3">
-          {creatorLoading
-            ? Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
-            : creatorLb?.map(entry => (
-                <motion.div
-                  key={entry.creatorId}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${entry.rank <= 3 ? "border-yellow-500/20 bg-yellow-500/5" : "border-white/5 hover:border-white/15 bg-card/20"}`}
-                  data-testid={`row-creator-${entry.rank}`}
-                >
-                  <div className="w-8 flex justify-center"><RankBadge rank={entry.rank} /></div>
-                  <img src={entry.avatar} alt={entry.name} className="w-12 h-12 rounded-full object-cover border border-white/10" />
-                  <div className="flex-1">
-                    <Link href={`/creator/${entry.creatorId}`} className="font-medium hover:text-primary transition-colors">{entry.name}</Link>
-                    {entry.studioName && <p className="text-xs text-muted-foreground">{entry.studioName}</p>}
-                  </div>
-                  <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{(entry.totalViews / 1000).toFixed(0)}k</span>
-                    <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{entry.followers.toLocaleString()}</span>
-                  </div>
-                  {entry.prize && (
-                    <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">{entry.prize}</Badge>
-                  )}
-                </motion.div>
-              ))}
-        </div>
-      )}
+            <div className="text-right text-sm">
+              <p className="font-semibold flex items-center gap-1 justify-end"><Eye className="w-4 h-4 text-muted-foreground" />{fmt(r.periodViews || r.totalViews)}</p>
+              <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end"><Users className="w-3 h-3" />{fmt(r.followers)}</p>
+            </div>
+          </Link>
+        ) : (
+          <Link key={`m${r.id}`} href={`/manga/${r.id}`} className="flex items-center gap-4 p-3 rounded-xl border border-border bg-card/40 hover:border-primary/50 transition-colors">
+            <span className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${medal(r.rank)}`}>{r.rank}</span>
+            <img src={r.coverImage} alt="" className="w-12 h-16 rounded-md object-cover" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold truncate">{r.title} {r.isMature && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary ml-1">18+</span>}</p>
+              <p className="text-xs text-muted-foreground truncate">{r.creatorName} · {r.genre} · {r.chapterCount} ch</p>
+            </div>
+            <p className="font-semibold text-sm flex items-center gap-1"><Eye className="w-4 h-4 text-muted-foreground" />{fmt(r.periodViews)}</p>
+          </Link>
+        ))}
+        {data && data.length === 0 && <div className="text-center py-16 text-muted-foreground border border-dashed border-border rounded-xl">Nothing here yet. Rankings fill up as readers read.</div>}
+      </div>
     </div>
   );
 }

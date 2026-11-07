@@ -119,3 +119,13 @@ pnpm --filter @workspace/manga-platform run dev    # terminal 2 → http://local
 ```
 Local me bina SMTP/PhonePe ke bhi sab chalta hai: OTP code screen pe dikh jaata hai, aur payment ke liye "Test payment" page aata hai.
 Demo logins: `reader@surituk.demo`, `creator@surituk.demo`.
+
+
+---
+
+## Phase 1 (Creator program) — kya badla
+- **Store, Contests, Quiz** band hain (code rakha hai). Wapas chalu karne ke liye: Render me `STORE_ENABLED=true` / `CONTESTS_ENABLED=true`, aur Cloudflare build me `VITE_FEATURE_STORE=true` / `VITE_FEATURE_CONTESTS=true`.
+- Naye tables/columns server start pe **apne aap** ban jaate hain — Neon me kuch chalane ki zaroorat nahi.
+- Creator banne ka ek hi raasta: **Settings → Professional Account → Apply for Creator**. Admin panel se approve / reject / more info.
+- Admin panel: **New creator mode** (Manual / Auto), seedha creator jodna, special invite link (bina review approve), creators ko suspend/ban, Verified & Registered Studio badge, audit log.
+- Mobile number abhi bina OTP ke liya jaata hai (SMS service baad me).

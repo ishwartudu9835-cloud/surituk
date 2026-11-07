@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { requireCreator } from "../lib/auth";
+import { requireCreator, isApprovedCreator } from "../lib/auth";
 import { notifySubscribers } from "../lib/notify";
-import { desc, eq, ilike, and, sql } from "drizzle-orm";
+import { desc, eq, ilike, and, sql, type SQL } from "drizzle-orm";
+import { visibleManga, canManage } from "../lib/visibility";
 import { db, mangaTable, creatorsTable, genresTable } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -11,7 +12,7 @@ router.get("/manga", async (req, res): Promise<void> => {
   const lim = Math.min(parseInt(limit, 10) || 20, 100);
   const off = parseInt(offset, 10) || 0;
 
-  const conditions: ReturnType<typeof eq>[] = [];
+  const conditions: SQL[] = [visibleManga(req.user)];
   if (genre) conditions.push(eq(mangaTable.genre, genre));
   if (language) conditions.push(eq(mangaTable.language, language));
   if (search) conditions.push(ilike(mangaTable.title, `%${search}%`));
@@ -66,6 +67,9 @@ router.post("/manga", requireCreator, async (req, res): Promise<void> => {
     res.status(400).json({ error: "title and genre are required" });
     return;
   }
+  // Pending applicants can only create private drafts. Approved creators choose (default: draft).
+  const publish = isApprovedCreator(req) && req.body?.publish === true;
+  const isMature = req.body?.isMature === true;
   const [m] = await db.insert(mangaTable).values({
     title,
     description,
@@ -76,11 +80,15 @@ router.post("/manga", requireCreator, async (req, res): Promise<void> => {
     tags: tags ?? [],
     language: language ?? "English",
     status: "ongoing",
+    isPublished: publish,
+    isMature,
   }).returning();
-  await db.update(creatorsTable).set({ totalManga: sql`${creatorsTable.totalManga} + 1` }).where(eq(creatorsTable.id, m.creatorId));
-  await db.update(genresTable).set({ mangaCount: sql`${genresTable.mangaCount} + 1` }).where(eq(genresTable.name, genre));
-  const [author] = await db.select({ name: creatorsTable.name }).from(creatorsTable).where(eq(creatorsTable.id, m.creatorId));
-  void notifySubscribers(m.creatorId, `${author?.name ?? "A creator you follow"} started a new series: "${m.title}"`, m.id);
+  if (publish) {
+    await db.update(creatorsTable).set({ totalManga: sql`${creatorsTable.totalManga} + 1` }).where(eq(creatorsTable.id, m.creatorId));
+    await db.update(genresTable).set({ mangaCount: sql`${genresTable.mangaCount} + 1` }).where(eq(genresTable.name, genre));
+    const [author] = await db.select({ name: creatorsTable.name }).from(creatorsTable).where(eq(creatorsTable.id, m.creatorId));
+    void notifySubscribers(m.creatorId, `${author?.name ?? "A creator you follow"} started a new series: "${m.title}"`, m.id);
+  }
   res.status(201).json({
     ...m,
     creatorName: "Creator",
@@ -120,6 +128,7 @@ router.get("/manga/trending", async (req, res): Promise<void> => {
     })
     .from(mangaTable)
     .leftJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id))
+    .where(visibleManga(req.user))
     .orderBy(desc(mangaTable.views))
     .limit(limit);
 
@@ -159,7 +168,7 @@ router.get("/manga/featured", async (req, res): Promise<void> => {
     })
     .from(mangaTable)
     .leftJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id))
-    .where(eq(mangaTable.isFeatured, true))
+    .where(and(eq(mangaTable.isFeatured, true), visibleManga(req.user)))
     .orderBy(desc(mangaTable.views))
     .limit(5);
 
@@ -200,6 +209,7 @@ router.get("/manga/new-releases", async (req, res): Promise<void> => {
     })
     .from(mangaTable)
     .leftJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id))
+    .where(visibleManga(req.user))
     .orderBy(desc(mangaTable.createdAt))
     .limit(limit);
 
@@ -239,7 +249,7 @@ router.get("/manga/top-monthly", async (req, res): Promise<void> => {
     })
     .from(mangaTable)
     .leftJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id))
-    .where(sql`${mangaTable.monthlyRank} IS NOT NULL`)
+    .where(and(sql`${mangaTable.monthlyRank} IS NOT NULL`, visibleManga(req.user)))
     .orderBy(mangaTable.monthlyRank)
     .limit(3);
 
@@ -280,13 +290,19 @@ router.get("/manga/:mangaId", async (req, res): Promise<void> => {
       monthlyRank: mangaTable.monthlyRank,
       createdAt: mangaTable.createdAt,
       updatedAt: mangaTable.updatedAt,
+      isPublished: mangaTable.isPublished,
+      isMature: mangaTable.isMature,
+      creatorStatus: creatorsTable.status,
+      creatorType: creatorsTable.type,
     })
     .from(mangaTable)
     .leftJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id))
     .where(eq(mangaTable.id, mangaId));
 
-  if (!row) { res.status(404).json({ error: "Manga not found" }); return; }
-  await db.update(mangaTable).set({ views: sql`${mangaTable.views} + 1` }).where(eq(mangaTable.id, mangaId));
+  if (!row) { res.status(404).json({ error: "Graphic novel not found" }); return; }
+  const owner = canManage(req.user, row.creatorId);
+  if (!owner && (!row.isPublished || row.creatorStatus !== "approved")) { res.status(404).json({ error: "Graphic novel not found" }); return; }
+  if (!owner && row.isMature && !req.user?.isAdult) { res.status(403).json({ error: "This series is for readers 18+", mature: true }); return; }
   res.json({
     ...row,
     createdAt: row.createdAt?.toISOString() ?? new Date().toISOString(),
