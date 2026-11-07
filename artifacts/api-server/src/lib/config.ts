@@ -29,14 +29,16 @@ export const config = {
     from: env.MAIL_FROM ?? (env.SMTP_USER ? `Surituk <${env.SMTP_USER}>` : "Surituk <no-reply@surituk.com>"),
   },
 
+  /** Any S3-compatible storage (Cloudflare R2, Neon storage, AWS S3…). AWS_* names also accepted. */
   s3: {
-    endpoint: env.S3_ENDPOINT ?? "",
-    region: env.S3_REGION ?? "auto",
-    accessKeyId: env.S3_ACCESS_KEY_ID ?? "",
-    secretAccessKey: env.S3_SECRET_ACCESS_KEY ?? "",
-    publicBucket: env.S3_PUBLIC_BUCKET ?? "",
+    endpoint: env.S3_ENDPOINT || env.AWS_ENDPOINT_URL_S3 || "",
+    region: env.S3_REGION || env.AWS_REGION || "auto",
+    accessKeyId: env.S3_ACCESS_KEY_ID || env.AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: env.S3_SECRET_ACCESS_KEY || env.AWS_SECRET_ACCESS_KEY || "",
+    publicBucket: env.S3_PUBLIC_BUCKET || env.S3_BUCKET || "",
+    /** Optional. If empty, images are served through this API at /api/files/... */
     publicBaseUrl: (env.S3_PUBLIC_URL ?? "").replace(/\/+$/, ""),
-    privateBucket: env.S3_PRIVATE_BUCKET ?? env.S3_PUBLIC_BUCKET ?? "",
+    privateBucket: env.S3_PRIVATE_BUCKET || env.S3_PUBLIC_BUCKET || env.S3_BUCKET || "",
   },
   uploadDir: env.UPLOAD_DIR ?? "./uploads",
 

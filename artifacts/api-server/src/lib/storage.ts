@@ -15,6 +15,7 @@ const s3 = s3Enabled
       endpoint: config.s3.endpoint,
       region: config.s3.region,
       credentials: { accessKeyId: config.s3.accessKeyId, secretAccessKey: config.s3.secretAccessKey },
+      forcePathStyle: true, // works with R2, Neon storage, MinIO and AWS
     })
   : null;
 
@@ -36,7 +37,7 @@ export async function savePublic(folder: string, file: { buffer: Buffer; origina
       Bucket: config.s3.publicBucket, Key: key, Body: file.buffer, ContentType: file.mimetype,
       CacheControl: "public, max-age=31536000, immutable",
     }));
-    return `${config.s3.publicBaseUrl}/${key}`;
+    return config.s3.publicBaseUrl ? `${config.s3.publicBaseUrl}/${key}` : `${config.apiUrl || apiBase}/api/files/${key}`;
   }
   const full = path.resolve(config.uploadDir, "public", key);
   await fs.mkdir(path.dirname(full), { recursive: true });
@@ -74,3 +75,15 @@ export const localPrivatePath = (key: string) => {
   if (!full.startsWith(base + path.sep)) throw new Error("Invalid key");
   return full;
 };
+
+/** Streams a public file from the bucket (used when the bucket has no public URL). */
+export async function getPublicObject(key: string) {
+  if (!s3) return null;
+  if (!/^(images|pages)\/[\w\-./]+$/.test(key) || key.includes("..")) return null;
+  try {
+    const r = await s3.send(new GetObjectCommand({ Bucket: config.s3.publicBucket, Key: key }));
+    return { body: r.Body as NodeJS.ReadableStream, contentType: r.ContentType ?? "application/octet-stream", length: r.ContentLength };
+  } catch {
+    return null;
+  }
+}

@@ -24,7 +24,10 @@ Is order me karo 👇
    Neon Console → **SQL Editor** → repo ki `db/schema.sql` file ka poora content paste karo → **Run**.
 4. (Optional) Demo manga/creators chahiye to `db/demo-data.sql` bhi paste karke Run karo. Isme Store ke books nahi hain — wo creators khud daalenge.
 
-## 3. Files — Cloudflare R2
+## 3. Files — Neon Storage (sabse aasaan) ya Cloudflare R2
+**Option A — Neon Storage:** Neon project ke `.env` me jo `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET` mile the, wahi 5 naam aur values Render ke Environment me daal do. Bas. Images API ke through dikhengi.
+
+**Option B — Cloudflare R2:**
 1. Cloudflare Dashboard → **R2** → 2 buckets banao: `surituk-public` aur `surituk-private`.
 2. `surituk-public` → Settings → **Public access → R2.dev subdomain → Allow**. Jo URL mile (`https://pub-xxxx.r2.dev`) wo `S3_PUBLIC_URL` hai.
 3. `surituk-private` ko **public mat karna** — isme bechi hui books ki PDF rahengi.
