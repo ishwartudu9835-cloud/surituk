@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { ImageUpload } from "@/components/ImageUpload";
 import { api, rupees, uploadFiles, type Product } from "@/lib/api";
 import { pdfToImages } from "@/lib/pdf";
+import { ManageSeries } from "@/components/ManageSeries";
 import { useAuth } from "@/lib/auth";
 
 type Section = "overview" | "manga" | "upload-manga" | "upload-chapter" | "store" | "sales" | "settings";
@@ -565,7 +566,9 @@ function CreatorSettings() {
 export default function CreatorDashboard() {
   const { me, loading } = useAuth();
   const initialTab = (new URLSearchParams(window.location.search).get("tab") as Section | null) ?? "overview";
-  const [active, setActive] = useState<Section>(sidebarItems.some(i => i.id === initialTab) ? initialTab : "overview");
+  const [active, setActiveRaw] = useState<Section>(sidebarItems.some(i => i.id === initialTab) ? initialTab : "overview");
+  const [managing, setManaging] = useState<number | null>(null);
+  const setActive = (s: Section) => { setManaging(null); setActiveRaw(s); };
 
   const creatorId = me?.creatorId ?? 0;
   const enabled = creatorId > 0;
@@ -649,19 +652,24 @@ export default function CreatorDashboard() {
           </div>
         )}
 
-        {active === "manga" && (
+        {active === "manga" && managing !== null && <ManageSeries seriesId={managing} onBack={() => setManaging(null)} />}
+        {active === "manga" && managing === null && (
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-2">
               <h1 className="text-3xl font-bold">My Graphic Novels</h1>
               <Button onClick={() => setActive("upload-manga")}><Plus className="w-4 h-4 mr-1.5" /> New series</Button>
             </div>
+            <p className="text-sm text-muted-foreground mb-6">Click a series to edit details, change chapter pages, or delete it.</p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {myManga.map(m => (
-                <Link key={m.id} href={`/manga/${m.id}`} className="group">
-                  <div className="aspect-[3/4] rounded-xl overflow-hidden border border-border mb-2"><img src={m.coverImage} alt="" className="w-full h-full object-cover" /></div>
+                <button key={m.id} onClick={() => setManaging(m.id)} className="group text-left">
+                  <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-border mb-2">
+                    <img src={m.coverImage} alt="" className="w-full h-full object-cover" />
+                    <span className="absolute inset-x-0 bottom-0 bg-black/70 text-xs py-1.5 text-center opacity-0 group-hover:opacity-100 transition-opacity">Manage</span>
+                  </div>
                   <p className="text-sm font-medium line-clamp-2 group-hover:text-primary">{m.title}</p>
                   <p className="text-xs text-muted-foreground">{m.chapterCount} chapters · {m.views.toLocaleString()} views</p>
-                </Link>
+                </button>
               ))}
               {myManga.length === 0 && <div className="col-span-full text-center py-16 text-muted-foreground border border-dashed border-border rounded-xl">No graphic novels yet. Create your first series.</div>}
             </div>

@@ -113,12 +113,6 @@ function Navbar() {
               <Bell className="w-4 h-4" />
             </Link>
           )}
-          <Link
-            href="/creator-dashboard"
-            className="hidden md:flex items-center h-9 px-3 rounded-lg bg-primary/15 border border-primary/30 text-primary text-sm font-medium hover:bg-primary/25 transition-colors whitespace-nowrap"
-          >
-            Creator Studio
-          </Link>
           {me ? <UserMenu /> : (
             <Link href="/login" className="hidden sm:flex items-center h-9 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">
               Log in

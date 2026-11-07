@@ -14,6 +14,7 @@ import uploadsRouter from "./uploads";
 import marketRouter from "./market";
 import adminRouter from "./admin";
 import subscriptionsRouter from "./subscriptions";
+import studioRouter from "./studio";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(uploadsRouter);
 router.use(marketRouter);
 router.use(adminRouter);
 router.use(subscriptionsRouter);
+router.use(studioRouter);
 
 export default router;

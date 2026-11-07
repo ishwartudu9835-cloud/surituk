@@ -129,6 +129,8 @@ router.get("/users/:userId/notifications", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
   const userId = parseInt(raw, 10);
   if (isNaN(userId)) { res.status(400).json({ error: "Invalid user id" }); return; }
+  // Notifications are private (they include purchases and payouts).
+  if (!req.user || (req.user.id !== userId && req.user.role !== "admin")) { res.status(403).json({ error: "Not allowed" }); return; }
 
   const rows = await db
     .select()

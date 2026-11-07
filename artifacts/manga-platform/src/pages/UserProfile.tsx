@@ -4,7 +4,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, BookOpen, Bookmark, Star, Bell, Clock } from "lucide-react";
+import { Trophy, BookOpen, Bookmark, Star, Bell, Clock, PenTool, Upload, Store, Wallet, Settings as SettingsIcon, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 
 function timeAgo(dateStr: string) {
@@ -24,7 +26,9 @@ export default function UserProfile() {
   const { data: history } = useGetUserReadingHistory(id, { query: { enabled: !!id, queryKey: getGetUserReadingHistoryQueryKey(id) } });
   const { data: bookmarks } = useGetUserBookmarks(id, { query: { enabled: !!id, queryKey: getGetUserBookmarksQueryKey(id) } });
   const { data: rewards } = useGetUserRewards(id, { query: { enabled: !!id, queryKey: getGetUserRewardsQueryKey(id) } });
-  const { data: notifications } = useGetUserNotifications(id, { query: { enabled: !!id, queryKey: getGetUserNotificationsQueryKey(id) } });
+  const { me } = useAuth();
+  const isOwn = !!me && me.id === id;
+  const { data: notifications } = useGetUserNotifications(id, { query: { enabled: !!id && isOwn, queryKey: getGetUserNotificationsQueryKey(id) } });
 
   if (isLoading) {
     return (
@@ -69,6 +73,9 @@ export default function UserProfile() {
             <span>Joined {new Date(user.joinedAt).toLocaleDateString()}</span>
           </div>
         </div>
+        {isOwn && (
+          <Button asChild className="shrink-0"><Link href="/creator-dashboard"><PenTool className="w-4 h-4 mr-2" /> Creator Studio</Link></Button>
+        )}
       </motion.div>
 
       {/* Rewards summary */}
@@ -92,7 +99,8 @@ export default function UserProfile() {
         <TabsList className="border border-white/10 bg-card/30 mb-6">
           <TabsTrigger value="history" className="flex items-center gap-2" data-testid="tab-history"><BookOpen className="w-4 h-4" /> History</TabsTrigger>
           <TabsTrigger value="bookmarks" className="flex items-center gap-2" data-testid="tab-bookmarks"><Bookmark className="w-4 h-4" /> Bookmarks</TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2" data-testid="tab-notifications"><Bell className="w-4 h-4" /> Notifications</TabsTrigger>
+          {isOwn && <TabsTrigger value="notifications" className="flex items-center gap-2" data-testid="tab-notifications"><Bell className="w-4 h-4" /> Notifications</TabsTrigger>}
+          {isOwn && <TabsTrigger value="studio" className="flex items-center gap-2"><PenTool className="w-4 h-4" /> Creator Studio</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="history">
@@ -147,6 +155,36 @@ export default function UserProfile() {
             ))}
           </div>
         </TabsContent>
+        {isOwn && (
+          <TabsContent value="studio">
+            <div className="rounded-2xl border border-border bg-card/40 p-6">
+              <h2 className="text-xl font-bold mb-1">Creator Studio</h2>
+              <p className="text-sm text-muted-foreground mb-5">
+                {me?.creatorId ? "Publish and manage your graphic novels, sell books and track your earnings." : "Become a creator to publish your graphic novel or manga and sell books in the Store."}
+              </p>
+              {me?.creatorId ? (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[
+                    { tab: "manga", label: "My Graphic Novels", hint: "Edit, delete, change pages", icon: <BookOpen className="w-5 h-5 text-primary" /> },
+                    { tab: "upload-chapter", label: "Upload Chapter", hint: "Images or PDF", icon: <Upload className="w-5 h-5 text-primary" /> },
+                    { tab: "upload-manga", label: "New Graphic Novel", hint: "Start a new series", icon: <PenTool className="w-5 h-5 text-primary" /> },
+                    { tab: "store", label: "Sell Books", hint: "eBooks and print", icon: <Store className="w-5 h-5 text-accent" /> },
+                    { tab: "sales", label: "Sales & Payouts", hint: "Orders, shipping, withdraw", icon: <Wallet className="w-5 h-5 text-accent" /> },
+                    { tab: "settings", label: "Creator profile", hint: "Photo, banner, UPI", icon: <SettingsIcon className="w-5 h-5 text-muted-foreground" /> },
+                  ].map(i => (
+                    <Link key={i.tab} href={`/creator-dashboard?tab=${i.tab}`} className="flex items-center gap-3 p-4 rounded-xl border border-border hover:border-primary/50 hover:bg-white/5 transition-colors">
+                      {i.icon}
+                      <div className="flex-1"><p className="font-semibold text-sm">{i.label}</p><p className="text-xs text-muted-foreground">{i.hint}</p></div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <Button asChild><Link href="/creator-dashboard">Become a creator</Link></Button>
+              )}
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
