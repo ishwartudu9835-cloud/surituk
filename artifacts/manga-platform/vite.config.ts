@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
@@ -18,9 +18,30 @@ const basePath = process.env.BASE_PATH ?? "/";
 // Where the Express API runs in local dev. On Replit the shared proxy handles /api.
 const apiTarget = process.env.API_URL ?? "http://localhost:8080";
 
+// Google AdSense: when VITE_ADSENSE_CLIENT (ca-pub-…) is set at build time, put the
+// verification meta tag + AdSense script into every page's <head> and publish /ads.txt.
+const adsenseClient = (process.env.VITE_ADSENSE_CLIENT ?? "").trim();
+function adsense(): Plugin {
+  return {
+    name: "surituk-adsense",
+    transformIndexHtml() {
+      if (!/^ca-pub-\d+$/.test(adsenseClient)) return [];
+      return [
+        { tag: "meta", attrs: { name: "google-adsense-account", content: adsenseClient }, injectTo: "head" },
+        { tag: "script", attrs: { async: true, crossorigin: "anonymous", src: `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseClient}` }, injectTo: "head" },
+      ];
+    },
+    generateBundle() {
+      if (!/^ca-pub-\d+$/.test(adsenseClient)) return;
+      this.emitFile({ type: "asset", fileName: "ads.txt", source: `google.com, ${adsenseClient.replace(/^ca-/, "")}, DIRECT, f08c47fec0942fa0\n` });
+    },
+  };
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
+    adsense(),
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),

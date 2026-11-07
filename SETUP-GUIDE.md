@@ -92,12 +92,14 @@ Render ka free plan SMTP ports block karta hai, isliye Gmail SMTP wahan kaam nah
 4. Custom domain (surituk.com) bhi yahin **Custom domains** se jod sakte ho.
 
 ## 9. Google AdSense
-1. Site live + kuch asli content hone ke baad adsense.google.com pe apply karo.
-2. Approve hone pe **Ads → By ad unit → Display ads** se 2–3 ad units banao, unke slot ID env me daalo.
-3. `artifacts/manga-platform/public/ads.txt` file banao, andar likho:
-   `google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0`
-4. Ads kahan lage hain: Home, Browse, Manga page, aur **chapter ke end** me (pages ke beech nahi). Login/payment pages pe ads nahi hain — AdSense policy ke liye zaroori hai.
-5. ⚠️ AdSense sirf **original / licensed** content pe approve hota hai. Kisi aur ki manga copy karke daaloge to account ban ho sakta hai.
+1. Custom domain Cloudflare Worker se jodo (Worker → Settings → Domains & Routes → Add → Custom domain). Render me `FRONTEND_URL` naye domain pe badlo, aur Google Cloud me OAuth client ke "Authorized JavaScript origins" me naya domain add karo.
+2. adsense.google.com pe apply karo, apna domain daalo. Publisher ID milega: `ca-pub-XXXXXXXXXXXXXXXX`.
+3. Cloudflare Worker → Settings → Build → Variables me `VITE_ADSENSE_CLIENT = ca-pub-XXXXXXXXXXXXXXXX` daalo aur redeploy karo.
+   Isse verification meta tag, AdSense script aur `/ads.txt` apne aap ban jaate hain. AdSense me "Verify / Request review" dabao.
+4. Approve hone pe **Ads → By ad unit → Display ads** se 2 ad units banao (Banner, Reader), unke slot ID daalo:
+   `VITE_ADSENSE_SLOT_BANNER`, `VITE_ADSENSE_SLOT_READER` (optional `VITE_ADSENSE_SLOT_IN_ARTICLE`). Redeploy.
+5. AdSense me **Auto ads OFF** rakho — ads sirf Home, Browse, Manga page aur chapter ke end me lagte hain (login/payment pages pe nahi).
+6. ⚠️ AdSense sirf **original / licensed** content pe approve hota hai. Kisi aur ki manga copy karke daaloge to account ban ho sakta hai.
 
 ---
 

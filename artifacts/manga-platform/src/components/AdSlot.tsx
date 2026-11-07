@@ -15,6 +15,7 @@ const SLOTS: Record<string, string | undefined> = {
 let scriptAdded = false;
 function ensureScript() {
   if (scriptAdded || !CLIENT) return;
+  if (document.querySelector('script[src*="adsbygoogle.js"]')) { scriptAdded = true; return; }
   scriptAdded = true;
   const s = document.createElement("script");
   s.async = true;
