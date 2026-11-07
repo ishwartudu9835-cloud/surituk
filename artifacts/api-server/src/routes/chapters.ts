@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { desc, eq, sql } from "drizzle-orm";
 import { db, chaptersTable, mangaTable } from "@workspace/db";
 import { requireCreator } from "../lib/auth";
+import { notifySubscribers } from "../lib/notify";
 
 const router: IRouter = Router();
 
@@ -70,6 +71,9 @@ router.post("/manga/:mangaId/chapters", requireCreator, async (req, res): Promis
   await db.update(mangaTable)
     .set({ chapterCount: sql`${mangaTable.chapterCount} + 1` })
     .where(eq(mangaTable.id, mangaId));
+
+  const [series] = await db.select({ title: mangaTable.title, creatorId: mangaTable.creatorId }).from(mangaTable).where(eq(mangaTable.id, mangaId));
+  if (series) void notifySubscribers(series.creatorId, `New chapter: "${series.title}" — Chapter ${chapterNumber}: ${title}`, mangaId);
 
   res.status(201).json({
     ...ch,

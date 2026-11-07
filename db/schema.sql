@@ -1,5 +1,5 @@
 
-\restrict q1hpXSgBSfaCTpAuDm1V1xdPz0rxDej7XF6J3U6kjWOgQ2tJd7xg0UEJ7Iwh2IK
+\restrict BghqZ5mhP2MzauXCLRccTW2Vx3nPEGdKnLAS3doKiHuSurZAWAnzG0JmA0hZCal
 
 CREATE TABLE public.bookmarks (
     id integer NOT NULL,
@@ -106,6 +106,23 @@ CREATE SEQUENCE public.contests_id_seq
     CACHE 1;
 
 ALTER SEQUENCE public.contests_id_seq OWNED BY public.contests.id;
+
+CREATE TABLE public.creator_subscriptions (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    creator_id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE SEQUENCE public.creator_subscriptions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.creator_subscriptions_id_seq OWNED BY public.creator_subscriptions.id;
 
 CREATE TABLE public.creators (
     id integer NOT NULL,
@@ -378,6 +395,8 @@ ALTER TABLE ONLY public.contest_winners ALTER COLUMN id SET DEFAULT nextval('pub
 
 ALTER TABLE ONLY public.contests ALTER COLUMN id SET DEFAULT nextval('public.contests_id_seq'::regclass);
 
+ALTER TABLE ONLY public.creator_subscriptions ALTER COLUMN id SET DEFAULT nextval('public.creator_subscriptions_id_seq'::regclass);
+
 ALTER TABLE ONLY public.creators ALTER COLUMN id SET DEFAULT nextval('public.creators_id_seq'::regclass);
 
 ALTER TABLE ONLY public.genres ALTER COLUMN id SET DEFAULT nextval('public.genres_id_seq'::regclass);
@@ -412,6 +431,9 @@ ALTER TABLE ONLY public.contest_winners
 
 ALTER TABLE ONLY public.contests
     ADD CONSTRAINT contests_pkey PRIMARY KEY (id);
+
+ALTER TABLE ONLY public.creator_subscriptions
+    ADD CONSTRAINT creator_subscriptions_pkey PRIMARY KEY (id);
 
 ALTER TABLE ONLY public.creators
     ADD CONSTRAINT creators_pkey PRIMARY KEY (id);
@@ -458,6 +480,8 @@ ALTER TABLE ONLY public.users
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_username_unique UNIQUE (username);
 
+CREATE UNIQUE INDEX creator_subscriptions_user_creator_idx ON public.creator_subscriptions USING btree (user_id, creator_id);
+
 ALTER TABLE ONLY public.bookmarks
     ADD CONSTRAINT bookmarks_manga_id_manga_id_fk FOREIGN KEY (manga_id) REFERENCES public.manga(id);
 
@@ -475,6 +499,12 @@ ALTER TABLE ONLY public.contest_winners
 
 ALTER TABLE ONLY public.contest_winners
     ADD CONSTRAINT contest_winners_user_id_users_id_fk FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+ALTER TABLE ONLY public.creator_subscriptions
+    ADD CONSTRAINT creator_subscriptions_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.creators(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.creator_subscriptions
+    ADD CONSTRAINT creator_subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 ALTER TABLE ONLY public.manga
     ADD CONSTRAINT manga_creator_id_creators_id_fk FOREIGN KEY (creator_id) REFERENCES public.creators(id);
@@ -503,5 +533,5 @@ ALTER TABLE ONLY public.reading_history
 ALTER TABLE ONLY public.reading_history
     ADD CONSTRAINT reading_history_user_id_users_id_fk FOREIGN KEY (user_id) REFERENCES public.users(id);
 
-\unrestrict q1hpXSgBSfaCTpAuDm1V1xdPz0rxDej7XF6J3U6kjWOgQ2tJd7xg0UEJ7Iwh2IK
+\unrestrict BghqZ5mhP2MzauXCLRccTW2Vx3nPEGdKnLAS3doKiHuSurZAWAnzG0JmA0hZCal
 

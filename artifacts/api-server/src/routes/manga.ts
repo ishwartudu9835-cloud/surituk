@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { requireCreator } from "../lib/auth";
+import { notifySubscribers } from "../lib/notify";
 import { desc, eq, ilike, and, sql } from "drizzle-orm";
 import { db, mangaTable, creatorsTable, genresTable } from "@workspace/db";
 
@@ -78,6 +79,8 @@ router.post("/manga", requireCreator, async (req, res): Promise<void> => {
   }).returning();
   await db.update(creatorsTable).set({ totalManga: sql`${creatorsTable.totalManga} + 1` }).where(eq(creatorsTable.id, m.creatorId));
   await db.update(genresTable).set({ mangaCount: sql`${genresTable.mangaCount} + 1` }).where(eq(genresTable.name, genre));
+  const [author] = await db.select({ name: creatorsTable.name }).from(creatorsTable).where(eq(creatorsTable.id, m.creatorId));
+  void notifySubscribers(m.creatorId, `${author?.name ?? "A creator you follow"} started a new series: "${m.title}"`, m.id);
   res.status(201).json({
     ...m,
     creatorName: "Creator",

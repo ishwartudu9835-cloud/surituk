@@ -159,7 +159,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   const [creator] = u.creatorId ? await db.select().from(creatorsTable).where(eq(creatorsTable.id, u.creatorId)) : [];
   res.json({
     ...publicUser(u),
-    creator: creator ? { id: creator.id, name: creator.name, studioName: creator.studioName, avatar: creator.avatar, upiId: creator.upiId, payoutName: creator.payoutName } : null,
+    creator: creator ? { id: creator.id, name: creator.name, studioName: creator.studioName, bio: creator.bio, avatar: creator.avatar, banner: creator.banner, upiId: creator.upiId, payoutName: creator.payoutName } : null,
   });
 });
 
@@ -181,17 +181,20 @@ router.post("/creators/me", requireAuth, async (req, res): Promise<void> => {
   const upiId = String(req.body?.upiId ?? "").trim().slice(0, 80) || null;
   const payoutName = String(req.body?.payoutName ?? "").trim().slice(0, 80) || null;
   if (upiId && !/^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upiId)) { res.status(400).json({ error: "UPI ID looks invalid (example: name@okaxis)" }); return; }
+  const imageUrl = (v: unknown) => (typeof v === "string" && /^https?:\/\//.test(v) ? v.slice(0, 500) : undefined);
+  const avatar = imageUrl(req.body?.avatar);
+  const banner = req.body?.banner === "" ? null : imageUrl(req.body?.banner);
 
   if (u.creatorId) {
     const [c] = await db.update(creatorsTable)
-      .set({ ...(name ? { name } : {}), studioName, bio, upiId, payoutName })
+      .set({ ...(name ? { name } : {}), studioName, bio, upiId, payoutName, ...(avatar ? { avatar } : {}), ...(banner !== undefined ? { banner } : {}) })
       .where(eq(creatorsTable.id, u.creatorId)).returning();
     res.json(c);
     return;
   }
 
   if (!name) { res.status(400).json({ error: "Creator name is required" }); return; }
-  const [c] = await db.insert(creatorsTable).values({ name, studioName, bio, upiId, payoutName, avatar: u.avatar }).returning();
+  const [c] = await db.insert(creatorsTable).values({ name, studioName, bio, upiId, payoutName, avatar: avatar ?? u.avatar, banner: banner ?? null }).returning();
   await db.update(usersTable).set({ creatorId: c.id, role: u.role === "admin" ? "admin" : "creator" }).where(eq(usersTable.id, u.id));
   res.status(201).json(c);
 });

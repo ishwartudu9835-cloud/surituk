@@ -17,6 +17,25 @@ const DEFAULT_GENRES = [
   { name: "Adventure", slug: "adventure", color: "#2DD4BF", icon: "compass" },
 ];
 
+/**
+ * Small, safe, idempotent migrations run on every start, so new features work
+ * on an existing database without running SQL by hand.
+ */
+export async function runMigrations() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS creator_subscriptions (
+        id serial PRIMARY KEY,
+        user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        creator_id integer NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS creator_subscriptions_user_creator_idx ON creator_subscriptions (user_id, creator_id)`);
+  } catch (err) {
+    logger.error({ err }, "Startup migration failed");
+  }
+}
+
 /** Makes sure a fresh database has the basic genres, so "New Manga" always has options. */
 export async function ensureDefaultGenres() {
   try {

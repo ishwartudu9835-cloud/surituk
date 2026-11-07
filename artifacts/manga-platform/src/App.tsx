@@ -174,7 +174,7 @@ function Footer() {
               <img src={logoMark} alt="Surituk" className="w-8 h-8 object-contain" />
               <Wordmark className="text-xl" />
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">Stories that bind. A home for manga readers and the creators who draw them.</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">Stories that bind. A home for graphic novels & manga — and the creators who draw them.</p>
           </div>
           <div>
             <h3 className="font-semibold mb-3 text-sm">Platform</h3>
@@ -215,7 +215,7 @@ function Footer() {
         </div>
         <div className="border-t border-border pt-6 text-xs text-muted-foreground flex flex-col sm:flex-row justify-between gap-2">
           <span>© {new Date().getFullYear()} Surituk. All rights reserved.</span>
-          <span>Built for manga lovers, by manga lovers.</span>
+          <span>Built for graphic novel & manga lovers.</span>
         </div>
       </div>
     </footer>

@@ -73,7 +73,7 @@ export const rupees = (paise: number | null | undefined) =>
 export type Me = {
   id: number; username: string; displayName: string; email: string | null; avatar: string;
   role: "reader" | "creator" | "admin"; creatorId: number | null;
-  creator: { id: number; name: string; studioName: string | null; avatar: string; upiId: string | null; payoutName: string | null } | null;
+  creator: { id: number; name: string; studioName: string | null; bio: string | null; avatar: string; banner: string | null; upiId: string | null; payoutName: string | null } | null;
 };
 
 export type Product = {

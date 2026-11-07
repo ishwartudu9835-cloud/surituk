@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { ensureDefaultGenres } from "./lib/bootstrap";
+import { ensureDefaultGenres, runMigrations } from "./lib/bootstrap";
 
 const rawPort = process.env["PORT"] ?? "8080";
 
@@ -17,5 +17,5 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
-  void ensureDefaultGenres();
+  void runMigrations().then(ensureDefaultGenres);
 });

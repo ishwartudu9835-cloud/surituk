@@ -11,6 +11,7 @@ import { config, phonepeEnabled, mockPaymentsEnabled } from "../lib/config";
 import { requireAuth, requireCreator, signToken, verifyToken } from "../lib/auth";
 import { createPayment, getOrderStatus, verifyWebhookAuth } from "../lib/phonepe";
 import { privateDownloadUrl, localPrivatePath } from "../lib/storage";
+import { notifySubscribers } from "../lib/notify";
 
 const router: IRouter = Router();
 
@@ -162,6 +163,10 @@ router.post("/market/products", requireCreator, async (req, res): Promise<void> 
   const v = parseProductInput(req.body ?? {});
   if (typeof v === "string") { res.status(400).json({ error: v }); return; }
   const [p] = await db.insert(productsTable).values({ ...v, creatorId: req.user!.creatorId! }).returning();
+  if (p.status === "active") {
+    const [c] = await db.select({ name: creatorsTable.name }).from(creatorsTable).where(eq(creatorsTable.id, p.creatorId));
+    void notifySubscribers(p.creatorId, `${c?.name ?? "A creator you follow"} released a new book in the Store: "${p.title}"`, p.id);
+  }
   res.status(201).json(productJson(p));
 });
 

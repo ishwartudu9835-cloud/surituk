@@ -65,7 +65,7 @@ export default function Community() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-4xl font-bold mb-1">Community</h1>
-          <p className="text-muted-foreground">Discuss, review, and connect with fellow manga fans</p>
+          <p className="text-muted-foreground">Discuss, review, and connect with fellow graphic novel & manga fans</p>
         </div>
         {!me ? (
           <Button asChild className="bg-primary hover:bg-primary/90"><Link href="/login?next=/community"><Plus className="w-4 h-4 mr-2" /> Log in to post</Link></Button>

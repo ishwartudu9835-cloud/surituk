@@ -40,8 +40,8 @@ export default function Browse() {
   return (
     <div className="container px-4 py-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Browse Manga</h1>
-        <p className="text-muted-foreground">Discover thousands of manga across every genre</p>
+        <h1 className="text-4xl font-bold mb-2">Browse Graphic Novels</h1>
+        <p className="text-muted-foreground">Graphic novels and manga across every genre</p>
       </div>
 
       {/* Filters */}
@@ -49,7 +49,7 @@ export default function Browse() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search manga titles..."
+            placeholder="Search graphic novels & manga..."
             value={search}
             onChange={e => handleSearch(e.target.value)}
             className="pl-9 bg-background/50"

@@ -23,12 +23,12 @@ import { useAuth } from "@/lib/auth";
 type Section = "overview" | "manga" | "upload-manga" | "upload-chapter" | "store" | "sales" | "settings";
 const sidebarItems: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: "overview", label: "Overview", icon: <BarChart2 className="w-4 h-4" /> },
-  { id: "manga", label: "My Manga", icon: <BookOpen className="w-4 h-4" /> },
-  { id: "upload-manga", label: "New Manga", icon: <Upload className="w-4 h-4" /> },
+  { id: "manga", label: "My Graphic Novels", icon: <BookOpen className="w-4 h-4" /> },
+  { id: "upload-manga", label: "New Graphic Novel", icon: <Upload className="w-4 h-4" /> },
   { id: "upload-chapter", label: "Upload Chapter", icon: <Upload className="w-4 h-4" /> },
   { id: "store", label: "Sell Books", icon: <Store className="w-4 h-4" /> },
   { id: "sales", label: "Sales & Payouts", icon: <Wallet className="w-4 h-4" /> },
-  { id: "settings", label: "Settings", icon: <Settings className="w-4 h-4" /> },
+  { id: "settings", label: "Profile & Settings", icon: <Settings className="w-4 h-4" /> },
 ];
 
 const LANGUAGES = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Marathi", "Japanese", "Korean", "Other"];
@@ -55,7 +55,7 @@ function BecomeCreator() {
     <div className="container px-4 py-16 max-w-lg">
       <p className="uppercase tracking-[0.3em] text-xs text-primary font-semibold mb-2">Creator Studio</p>
       <h1 className="text-4xl font-bold mb-3">Start publishing on Surituk</h1>
-      <p className="text-muted-foreground mb-8">Upload manga chapters for free reading, and sell eBooks or printed copies in the Store. You keep 80% of every book sale.</p>
+      <p className="text-muted-foreground mb-8">Publish your graphic novel or manga chapter by chapter for free reading, and sell eBooks or printed copies in the Store. You keep 80% of every book sale.</p>
       <form onSubmit={submit} className={`${card} space-y-4`}>
         <div><label className={label}>Creator / pen name *</label><Input required value={name} onChange={e => setName(e.target.value)} /></div>
         <div><label className={label}>Studio name</label><Input value={studioName} onChange={e => setStudio(e.target.value)} placeholder="Optional" /></div>
@@ -91,7 +91,7 @@ function UploadManga({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-3xl font-bold mb-6">New Manga Series</h1>
+      <h1 className="text-3xl font-bold mb-6">New Graphic Novel Series</h1>
       <form onSubmit={submit} className={`${card} grid md:grid-cols-[220px_1fr] gap-6`}>
         <div className="space-y-4">
           <div><label className={label}>Cover *</label><ImageUpload value={f.coverImage} onChange={coverImage => setF({ ...f, coverImage })} /></div>
@@ -99,7 +99,7 @@ function UploadManga({ onDone }: { onDone: () => void }) {
         </div>
         <div className="space-y-4">
           <div><label className={label}>Title *</label><Input required value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></div>
-          <div><label className={label}>Description</label><Textarea rows={5} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} placeholder="What is your story about?" /></div>
+          <div><label className={label}>Description</label><Textarea rows={5} value={f.description} onChange={e => setF({ ...f, description: e.target.value })} placeholder="What is your graphic novel about?" /></div>
           <div className="grid grid-cols-2 gap-3">
             <div><label className={label}>Genre *</label>
               <select required value={f.genre} onChange={e => setF({ ...f, genre: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-3 text-sm">
@@ -179,16 +179,16 @@ function UploadChapter({ myManga }: { myManga: { id: number; title: string; chap
     } finally { setPct(null); }
   }
 
-  if (!myManga.length) return <div className={card}>Create a manga series first, then add chapters to it.</div>;
+  if (!myManga.length) return <div className={card}>Create a graphic novel series first, then add chapters to it.</div>;
 
   return (
     <div className="max-w-4xl">
       <h1 className="text-3xl font-bold mb-6">Upload Chapter</h1>
       <form onSubmit={submit} className={`${card} space-y-5`}>
         <div className="grid sm:grid-cols-[1fr_120px_1fr] gap-3">
-          <div><label className={label}>Manga *</label>
+          <div><label className={label}>Series *</label>
             <select required value={mangaId} onChange={e => { setMangaId(e.target.value); const m = myManga.find(x => String(x.id) === e.target.value); if (m && !num) setNum(String(m.chapterCount + 1)); }} className="w-full h-10 rounded-md bg-background border border-input px-3 text-sm">
-              <option value="">Select manga</option>{myManga.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
+              <option value="">Select series</option>{myManga.map(m => <option key={m.id} value={m.id}>{m.title}</option>)}
             </select>
           </div>
           <div><label className={label}>Chapter # *</label><Input required type="number" step="0.1" min="0" value={num} onChange={e => setNum(e.target.value)} /></div>
@@ -293,7 +293,7 @@ function ProductEditor({ initial, hasExistingFile, onClose }: { initial: Product
     <form onSubmit={save} className={`${card} grid md:grid-cols-[220px_1fr] gap-6`}>
       <div><label className={label}>Cover *</label><ImageUpload value={f.coverImage} onChange={coverImage => setF({ ...f, coverImage })} /></div>
       <div className="space-y-4">
-        <div><label className={label}>Book title *</label><Input required value={f.title} onChange={set("title")} placeholder="e.g. My Manga — Volume 1" /></div>
+        <div><label className={label}>Book title *</label><Input required value={f.title} onChange={set("title")} placeholder="e.g. My Graphic Novel — Volume 1" /></div>
         <div><label className={label}>Description</label><Textarea rows={4} value={f.description} onChange={set("description")} /></div>
         <div className="grid grid-cols-3 gap-3">
           <div><label className={label}>Genre</label><select value={f.genre} onChange={set("genre")} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm"><option value="">—</option>{genres?.map(g => <option key={g.id}>{g.name}</option>)}</select></div>
@@ -509,20 +509,40 @@ function Sales({ goSettings }: { goSettings: () => void }) {
 
 function CreatorSettings() {
   const { me, refresh } = useAuth();
+  const qc = useQueryClient();
   const c = me?.creator;
-  const [f, setF] = useState({ name: c?.name ?? "", studioName: c?.studioName ?? "", upiId: c?.upiId ?? "", payoutName: c?.payoutName ?? "" });
+  const [f, setF] = useState({
+    name: c?.name ?? "", studioName: c?.studioName ?? "", bio: c?.bio ?? "",
+    avatar: c?.avatar?.startsWith("http") ? c.avatar : "", banner: c?.banner ?? "",
+    upiId: c?.upiId ?? "", payoutName: c?.payoutName ?? "",
+  });
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   async function save(e: React.FormEvent) {
     e.preventDefault(); setMsg(null);
-    try { await api("/creators/me", { body: f }); await refresh(); setMsg({ ok: true, t: "Saved" }); }
-    catch (e) { setMsg({ ok: false, t: (e as Error).message }); }
+    try {
+      await api("/creators/me", { body: f });
+      await refresh();
+      if (c) qc.invalidateQueries({ queryKey: getGetCreatorQueryKey(c.id) });
+      setMsg({ ok: true, t: "Saved" });
+    } catch (e) { setMsg({ ok: false, t: (e as Error).message }); }
   }
   return (
-    <div className="max-w-lg">
-      <h1 className="text-3xl font-bold mb-6">Settings</h1>
-      <form onSubmit={save} className={`${card} space-y-4`}>
+    <div className="max-w-2xl">
+      <h1 className="text-3xl font-bold mb-6">Profile & Settings</h1>
+      <form onSubmit={save} className={`${card} space-y-5`}>
+        <div className="grid sm:grid-cols-[160px_1fr] gap-5">
+          <div>
+            <label className={label}>Profile photo</label>
+            <ImageUpload value={f.avatar} onChange={avatar => setF({ ...f, avatar })} aspect="aspect-square" label="Upload photo" />
+          </div>
+          <div>
+            <label className={label}>Banner (shown on your creator page)</label>
+            <ImageUpload value={f.banner} onChange={banner => setF({ ...f, banner })} aspect="aspect-[16/6]" label="Upload banner" />
+          </div>
+        </div>
         <div><label className={label}>Creator name</label><Input value={f.name} onChange={e => setF({ ...f, name: e.target.value })} /></div>
         <div><label className={label}>Studio name</label><Input value={f.studioName} onChange={e => setF({ ...f, studioName: e.target.value })} /></div>
+        <div><label className={label}>Bio</label><Textarea rows={3} value={f.bio} onChange={e => setF({ ...f, bio: e.target.value })} placeholder="Tell readers about yourself and your stories" /></div>
         <div className="pt-2 border-t border-border">
           <p className="font-semibold mb-3">Payout details</p>
           <div className="space-y-3">
@@ -531,7 +551,10 @@ function CreatorSettings() {
           </div>
         </div>
         {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.t}</p>}
-        <Button type="submit" className="w-full">Save</Button>
+        <div className="flex gap-3">
+          <Button type="submit" className="flex-1">Save</Button>
+          {c && <Button asChild variant="outline"><Link href={`/creator/${c.id}`}>View my page</Link></Button>}
+        </div>
       </form>
     </div>
   );
@@ -555,7 +578,7 @@ export default function CreatorDashboard() {
   if (!me) return (
     <div className="container px-4 py-20 text-center max-w-md">
       <h1 className="text-3xl font-bold mb-3">Creator Studio</h1>
-      <p className="text-muted-foreground mb-6">Log in to publish your manga and sell your books.</p>
+      <p className="text-muted-foreground mb-6">Log in to publish your graphic novels and sell your books.</p>
       <Button asChild><Link href="/login?next=/creator-dashboard">Log in / Sign up</Link></Button>
     </div>
   );
@@ -614,7 +637,7 @@ export default function CreatorDashboard() {
             )}
             {(analytics?.topManga ?? []).length > 0 && (
               <div className={card}>
-                <h2 className="text-base font-semibold mb-4">Top manga</h2>
+                <h2 className="text-base font-semibold mb-4">Top series</h2>
                 <div className="space-y-3">{analytics!.topManga!.map(m => (
                   <div key={m.id} className="flex items-center gap-3">
                     <Link href={`/manga/${m.id}`} className="flex-1 text-sm hover:text-primary">{m.title}</Link>
@@ -629,7 +652,7 @@ export default function CreatorDashboard() {
         {active === "manga" && (
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-3xl font-bold">My Manga</h1>
+              <h1 className="text-3xl font-bold">My Graphic Novels</h1>
               <Button onClick={() => setActive("upload-manga")}><Plus className="w-4 h-4 mr-1.5" /> New series</Button>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -640,7 +663,7 @@ export default function CreatorDashboard() {
                   <p className="text-xs text-muted-foreground">{m.chapterCount} chapters · {m.views.toLocaleString()} views</p>
                 </Link>
               ))}
-              {myManga.length === 0 && <div className="col-span-full text-center py-16 text-muted-foreground border border-dashed border-border rounded-xl">No manga yet. Create your first series.</div>}
+              {myManga.length === 0 && <div className="col-span-full text-center py-16 text-muted-foreground border border-dashed border-border rounded-xl">No graphic novels yet. Create your first series.</div>}
             </div>
           </div>
         )}

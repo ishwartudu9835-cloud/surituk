@@ -7,10 +7,10 @@ type InfoSection = { title: string; content: React.ReactNode };
 const pages: Record<string, { heading: string; intro: string; sections: InfoSection[] }> = {
   about: {
     heading: "About Surituk",
-    intro: "Surituk is a global manga reading platform built for readers, creators, and community — a complete ecosystem for discovering stories, growing audiences, and earning revenue.",
+    intro: "Surituk is a graphic novel and manga platform built for readers, creators, and community — a complete ecosystem for discovering stories, growing audiences, and earning revenue.",
     sections: [
-      { title: "Our Mission", content: "To empower manga creators worldwide with fair revenue sharing, transparent analytics, and a passionate global readership. We believe every great story deserves a great audience." },
-      { title: "For Readers", content: "Access thousands of manga across every genre. Track your progress, earn reading points, participate in contests, and connect with fellow fans in our community." },
+      { title: "Our Mission", content: "To empower graphic novel and manga creators with fair revenue sharing, transparent analytics, and a passionate global readership. We believe every great story deserves a great audience." },
+      { title: "For Readers", content: "Read graphic novels and manga across every genre. Track your progress, earn reading points, participate in contests, and connect with fellow fans in our community." },
       { title: "For Creators", content: "Upload your work, build your audience, and earn through AdSense revenue sharing, fan support, and creator bonuses. Our dashboard gives you full visibility into your performance." },
       { title: "Our Values", content: "Creator first, reader focused, community driven. We build features that serve both sides of the ecosystem equally. No exclusive deals that lock creators in — you own your work." },
     ],

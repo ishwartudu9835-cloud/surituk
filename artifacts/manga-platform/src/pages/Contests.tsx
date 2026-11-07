@@ -152,7 +152,7 @@ export default function Contests() {
           </div>
         </div>
         <h1 className="text-4xl font-bold mb-2">Contests & Quizzes</h1>
-        <p className="text-muted-foreground">Test your manga knowledge and win real prizes</p>
+        <p className="text-muted-foreground">Test your graphic novel & manga knowledge and win real prizes</p>
       </div>
 
       {isLoading ? (

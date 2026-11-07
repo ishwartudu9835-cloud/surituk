@@ -50,7 +50,7 @@ export default function Leaderboard() {
           </div>
         </div>
         <h1 className="text-4xl font-bold mb-2">Leaderboard</h1>
-        <p className="text-muted-foreground">The top manga and creators on Surituk</p>
+        <p className="text-muted-foreground">The top graphic novels and creators on Surituk</p>
       </div>
 
       {/* Period toggle */}
@@ -76,7 +76,7 @@ export default function Leaderboard() {
             className={`pb-3 px-4 text-sm font-medium border-b-2 transition-all capitalize ${tab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
             data-testid={`tab-${t}`}
           >
-            {t}
+            {t === "manga" ? "Graphic Novels" : "Creators"}
           </button>
         ))}
       </div>

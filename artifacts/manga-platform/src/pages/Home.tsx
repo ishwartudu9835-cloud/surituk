@@ -90,19 +90,19 @@ export default function Home() {
             <img src={mark} alt="" aria-hidden className="absolute right-[-6rem] md:right-10 top-1/2 -translate-y-1/2 w-[420px] md:w-[560px] opacity-15 md:opacity-25 pointer-events-none" />
             <div className="container px-4 relative z-10">
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="max-w-2xl">
-                <p className="uppercase tracking-[0.3em] text-xs text-primary font-semibold mb-4">Read · Create · Belong</p>
+                <p className="uppercase tracking-[0.3em] text-xs text-primary font-semibold mb-4">Graphic Novels · Manga · Comics</p>
                 <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold leading-[1.05] mb-5">
                   Stories that <span className="italic text-primary">bind</span>.
                 </h1>
                 <p className="text-base sm:text-lg text-muted-foreground mb-8 max-w-xl">
-                  Surituk is a home for manga readers and the creators who draw them. Discover new worlds, follow your favourite artists, and publish your own story.
+                  Surituk is a home for graphic novels and manga — and the creators who draw them. Discover new worlds, subscribe to your favourite artists, and publish your own story.
                 </p>
                 <div className="flex flex-wrap gap-3">
                   <Button asChild size="lg" className="h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
                     <Link href="/browse">Start Reading</Link>
                   </Button>
                   <Button asChild size="lg" variant="outline" className="h-12 px-8 border-border hover:bg-white/5">
-                    <Link href="/creator-dashboard">Publish your manga</Link>
+                    <Link href="/creator-dashboard">Publish your graphic novel</Link>
                   </Button>
                 </div>
               </motion.div>

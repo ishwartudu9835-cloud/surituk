@@ -1,4 +1,5 @@
 import { Link, useParams } from "wouter";
+import { SubscribeButton } from "@/components/SubscribeButton";
 import { AdSlot } from "@/components/AdSlot";
 import { useGetManga, useListChapters, useLikeManga, useGetTrendingManga, getGetMangaQueryKey, getListChaptersQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,7 @@ export default function MangaDetail() {
     );
   }
 
-  if (!manga) return <div className="container py-20 text-center text-muted-foreground">Manga not found</div>;
+  if (!manga) return <div className="container py-20 text-center text-muted-foreground">Graphic novel not found</div>;
 
   const statusColor: Record<string, string> = {
     ongoing: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -85,9 +86,12 @@ export default function MangaDetail() {
               {manga.isFeatured && <Badge className="bg-primary/20 text-primary border-primary/30">Featured</Badge>}
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-2">{manga.title}</h1>
-            <Link href={`/creator/${manga.creatorId}`} className="text-primary hover:underline text-sm font-medium">
-              by {manga.creatorName}
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link href={`/creator/${manga.creatorId}`} className="text-primary hover:underline text-sm font-medium">
+                by {manga.creatorName}
+              </Link>
+              <SubscribeButton creatorId={manga.creatorId} size="sm" />
+            </div>
             <div className="flex items-center gap-6 mt-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5"><Eye className="w-4 h-4" />{manga.views.toLocaleString()} views</span>
               <span className="flex items-center gap-1.5"><Heart className="w-4 h-4" />{manga.likes.toLocaleString()} likes</span>

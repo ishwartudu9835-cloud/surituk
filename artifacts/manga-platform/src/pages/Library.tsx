@@ -12,6 +12,7 @@ export default function Library() {
   const { me, loading } = useAuth();
   const { data, isLoading } = useQuery({ queryKey: ["my-orders"], queryFn: () => api<OrderView[]>("/market/my-orders"), enabled: !!me });
   const [busy, setBusy] = useState<number | null>(null);
+  const { data: subs } = useQuery({ queryKey: ["my-subscriptions"], queryFn: () => api<{ id: number; name: string; avatar: string; totalManga: number }[]>("/me/subscriptions"), enabled: !!me });
 
   async function download(o: OrderView) {
     setBusy(o.id);
@@ -30,7 +31,7 @@ export default function Library() {
   return (
     <div className="container px-4 py-10">
       <h1 className="text-4xl font-bold mb-2">My Library</h1>
-      <p className="text-muted-foreground mb-10">Books you've bought on Surituk.</p>
+      <p className="text-muted-foreground mb-10">Books you've bought and creators you follow.</p>
       {isLoading && <Loader2 className="w-6 h-6 animate-spin text-primary" />}
 
       <h2 className="text-2xl font-bold mb-5 brush-underline">eBooks</h2>
@@ -61,6 +62,17 @@ export default function Library() {
           </div>
         ))}
         {data && prints.length === 0 && <p className="text-muted-foreground">No print orders.</p>}
+      </div>
+
+      <h2 className="text-2xl font-bold mb-5 brush-underline">Subscribed creators</h2>
+      <div className="flex flex-wrap gap-4 mb-14">
+        {subs?.map(c => (
+          <Link key={c.id} href={`/creator/${c.id}`} className="flex items-center gap-3 p-3 pr-5 rounded-full border border-border bg-card/50 hover:border-primary/50 transition-colors">
+            <img src={c.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+            <div><p className="text-sm font-semibold">{c.name}</p><p className="text-xs text-muted-foreground">{c.totalManga} series</p></div>
+          </Link>
+        ))}
+        {subs && subs.length === 0 && <p className="text-muted-foreground">You haven't subscribed to any creator yet. Tap <b>Subscribe</b> on a creator's page to get notified about new chapters.</p>}
       </div>
 
       {pending.length > 0 && <>
