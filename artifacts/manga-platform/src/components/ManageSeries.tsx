@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { IMAGE_ACCEPT, isImageFile } from "@/lib/image";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useListGenres } from "@workspace/api-client-react";
@@ -42,7 +43,7 @@ function ChapterEditor({ chapter, onClose }: { chapter: Chapter; onClose: () => 
   async function add(list: FileList | null, replaceAll = false) {
     if (!list) return;
     const all = Array.from(list);
-    const imgs = all.filter(f => f.type.startsWith("image/")).sort(naturalSort);
+    const imgs = all.filter(isImageFile).sort(naturalSort);
     const pdfs = all.filter(f => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
     const newItems: PageItem[] = imgs.map(fromFile);
     for (const pdf of pdfs) {
@@ -109,8 +110,8 @@ function ChapterEditor({ chapter, onClose }: { chapter: Chapter; onClose: () => 
       </div>
       <input ref={input} type="file" multiple accept="image/*,application/pdf,.pdf" className="sr-only" tabIndex={-1}
         onChange={e => { const r = e.target.dataset.replace === "1"; e.target.dataset.replace = ""; add(e.target.files, r); e.target.value = ""; }} />
-      <input ref={oneInput} type="file" accept="image/*" className="sr-only" tabIndex={-1}
-        onChange={e => { const f = e.target.files?.[0]; const i = replaceOne.current; if (f && i !== null) setItems(prev => prev.map((it, j) => j === i ? fromFile(f) : it)); e.target.value = ""; }} />
+      <input ref={oneInput} type="file" accept={IMAGE_ACCEPT} className="sr-only" tabIndex={-1}
+        onChange={e => { const f = e.target.files?.[0]; const i = replaceOne.current; if (f && i !== null && isImageFile(f)) setItems(prev => prev.map((it, j) => j === i ? fromFile(f) : it)); e.target.value = ""; }} />
 
       {converting && <p className="text-sm text-accent flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {converting}</p>}
 

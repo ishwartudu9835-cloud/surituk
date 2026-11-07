@@ -1,3 +1,4 @@
+import { isImageFile } from "@/lib/image";
 import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
@@ -122,7 +123,7 @@ function UploadChapter({ myManga }: { myManga: { id: number; title: string; chap
   const add = async (list: FileList | null) => {
     if (!list) return;
     const all = Array.from(list);
-    const imgs = all.filter(f => f.type.startsWith("image/"));
+    const imgs = all.filter(isImageFile);
     const pdfs = all.filter(f => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
     setMsg(null);
     if (imgs.length) setFiles(prev => [...prev, ...imgs].sort(naturalSort).slice(0, 200));

@@ -71,3 +71,14 @@ export const IMAGE_PRESETS: Record<string, Opts> = {
   "/uploads/image": { maxWidth: 2400, maxHeight: 2400, maxBytes: 8 * MB },
   "/uploads/images": { maxWidth: 1600, maxHeight: 20000, maxBytes: 8 * MB },
 };
+
+/**
+ * `accept` for image pickers. On Android, Chrome opens the system Photo Picker when a page asks for
+ * images only — on some phones (e.g. some Xiaomi/Redmi builds) that picker never opens.
+ * Asking for any file makes Chrome show its normal chooser (Camera / Files / Gallery) instead;
+ * we check the file is an image ourselves before uploading.
+ */
+export const IMAGE_ACCEPT: string | undefined =
+  typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) ? undefined : "image/*";
+
+export const isImageFile = (f: File) => f.type.startsWith("image/") || /\.(jpe?g|png|webp|gif|heic|heif|avif|bmp)$/i.test(f.name);

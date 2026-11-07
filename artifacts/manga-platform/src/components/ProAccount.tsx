@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { IMAGE_ACCEPT, isImageFile } from "@/lib/image";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, User, Users, Copy, Check, Clock, XCircle, AlertCircle, CheckCircle2, Plus, Trash2, ImagePlus, X, PenTool, Gift } from "lucide-react";
@@ -48,7 +49,9 @@ function SampleUploader({ value, onChange }: { value: string[]; onChange: (v: st
     if (!files) return;
     setBusy(true); setErr("");
     const urls = [...value];
-    for (const f of Array.from(files).slice(0, 5 - urls.length)) {
+    const picked = Array.from(files);
+    if (picked.some(f => !isImageFile(f))) setErr("Only photos can be added as sample pages.");
+    for (const f of picked.filter(isImageFile).slice(0, 5 - urls.length)) {
       try { urls.push((await uploadFiles<{ url: string }>("/uploads/image", "file", [f])).url); }
       catch (e) { setErr((e as Error).message); }
     }
@@ -69,7 +72,7 @@ function SampleUploader({ value, onChange }: { value: string[]; onChange: (v: st
           </button>
         )}
       </div>
-      <input ref={input} type="file" multiple accept="image/*" className="sr-only" tabIndex={-1} onChange={e => { add(e.target.files); e.target.value = ""; }} />
+      <input ref={input} type="file" multiple accept={IMAGE_ACCEPT} className="sr-only" tabIndex={-1} onChange={e => { add(e.target.files); e.target.value = ""; }} />
       {err && <p className="text-sm text-red-400 mt-2">{err}</p>}
     </div>
   );

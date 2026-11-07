@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from "react";
+import { IMAGE_ACCEPT, isImageFile } from "@/lib/image";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { uploadFiles } from "@/lib/api";
 
@@ -13,6 +14,7 @@ export function ImageUpload({ value, onChange, label = "Upload cover", aspect = 
 
   async function pick(file?: File) {
     if (!file) return;
+    if (!isImageFile(file)) { setErr("Please choose a photo (JPG, PNG or WEBP)."); return; }
     setErr(""); setPct(0);
     try {
       const { url } = await uploadFiles<{ url: string }>(endpoint, "file", [file], setPct);
@@ -40,7 +42,7 @@ export function ImageUpload({ value, onChange, label = "Upload cover", aspect = 
           <div className="text-center text-sm text-muted-foreground px-4"><ImagePlus className="w-7 h-7 mx-auto mb-2 text-primary" />{label}<div className="text-xs mt-1 opacity-70">Any photo — auto-resized</div></div>
         )}
       </label>
-      <input id={id} ref={input} type="file" accept="image/*" className="sr-only" tabIndex={-1} onChange={e => { pick(e.target.files?.[0]); e.target.value = ""; }} />
+      <input id={id} ref={input} type="file" accept={IMAGE_ACCEPT} className="sr-only" tabIndex={-1} onChange={e => { pick(e.target.files?.[0]); e.target.value = ""; }} />
       {err && <p className="text-sm text-red-400 mt-2">{err}</p>}
     </div>
   );
