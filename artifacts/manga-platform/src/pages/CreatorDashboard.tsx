@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ImageUpload } from "@/components/ImageUpload";
 import { api, rupees, uploadFiles, type Product } from "@/lib/api";
+import { pdfToImages } from "@/lib/pdf";
 import { useAuth } from "@/lib/auth";
 
 type Section = "overview" | "manga" | "upload-manga" | "upload-chapter" | "store" | "sales" | "settings";
@@ -130,12 +131,27 @@ function UploadChapter({ myManga }: { myManga: { id: number; title: string; chap
   const [files, setFiles] = useState<File[]>([]);
   const [pct, setPct] = useState<number | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [converting, setConverting] = useState<string | null>(null);
   const previews = useMemo(() => files.map(f => URL.createObjectURL(f)), [files]);
 
-  const add = (list: FileList | null) => {
+  const add = async (list: FileList | null) => {
     if (!list) return;
-    const imgs = Array.from(list).filter(f => f.type.startsWith("image/"));
-    setFiles(prev => [...prev, ...imgs].sort(naturalSort).slice(0, 200));
+    const all = Array.from(list);
+    const imgs = all.filter(f => f.type.startsWith("image/"));
+    const pdfs = all.filter(f => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+    setMsg(null);
+    if (imgs.length) setFiles(prev => [...prev, ...imgs].sort(naturalSort).slice(0, 200));
+    // PDF pages keep their order from the PDF and are added after existing pages.
+    for (const pdf of pdfs) {
+      try {
+        setConverting(`Reading ${pdf.name}…`);
+        const pages = await pdfToImages(pdf, (d, t) => setConverting(`Converting ${pdf.name}: page ${d} of ${t}`));
+        setFiles(prev => [...prev, ...pages].slice(0, 200));
+      } catch (e) {
+        setMsg({ ok: false, text: `Could not read ${pdf.name}. Is it a valid, non-password-protected PDF?` });
+      }
+    }
+    setConverting(null);
   };
   const move = (i: number, d: -1 | 1) => setFiles(prev => {
     const next = [...prev]; const j = i + d; if (j < 0 || j >= next.length) return prev;
@@ -186,10 +202,12 @@ function UploadChapter({ myManga }: { myManga: { id: number; title: string; chap
           className="rounded-xl border-2 border-dashed border-border hover:border-primary/60 p-8 text-center cursor-pointer transition-colors"
         >
           <FileUp className="w-8 h-8 mx-auto text-primary mb-2" />
-          <p className="font-medium">Drop chapter pages here or click to choose</p>
-          <p className="text-xs text-muted-foreground mt-1">JPG / PNG / WEBP · up to 200 pages · 10 MB each · sorted by file name (01.jpg, 02.jpg…)</p>
-          <input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => { add(e.target.files); e.target.value = ""; }} />
+          <p className="font-medium">Drop chapter pages or a PDF here, or click to choose</p>
+          <p className="text-xs text-muted-foreground mt-1">PDF, or images (JPG / PNG / WEBP) · up to 200 pages · images are sorted by file name (01.jpg, 02.jpg…)</p>
+          <input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" className="hidden" onChange={e => { add(e.target.files); e.target.value = ""; }} />
         </div>
+
+        {converting && <p className="text-sm text-accent flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {converting}</p>}
 
         {files.length > 0 && (
           <div>
@@ -212,7 +230,7 @@ function UploadChapter({ myManga }: { myManga: { id: number; title: string; chap
 
         {pct !== null && <div className="h-2 rounded-full bg-secondary overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>}
         {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.text}</p>}
-        <Button type="submit" disabled={pct !== null} className="w-full">{pct !== null ? `Uploading… ${pct}%` : "Publish chapter"}</Button>
+        <Button type="submit" disabled={pct !== null || !!converting} className="w-full">{pct !== null ? `Uploading… ${pct}%` : converting ? "Converting PDF…" : "Publish chapter"}</Button>
       </form>
     </div>
   );
