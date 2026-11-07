@@ -219,3 +219,9 @@
   margin-inline: auto;
   max-width: 1320px;
 }
+
+@layer utilities {
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+body { overflow-x: clip; }

@@ -101,7 +101,7 @@ export default function UserProfile() {
       )}
 
       <Tabs defaultValue="history">
-        <TabsList className="border border-white/10 bg-card/30 mb-6">
+        <TabsList className={`border border-white/10 bg-card/30 mb-6 h-auto w-full sm:w-max grid grid-cols-2 sm:inline-flex gap-1`}>
           <TabsTrigger value="history" className="flex items-center gap-2" data-testid="tab-history"><BookOpen className="w-4 h-4" /> History</TabsTrigger>
           <TabsTrigger value="bookmarks" className="flex items-center gap-2" data-testid="tab-bookmarks"><Bookmark className="w-4 h-4" /> Bookmarks</TabsTrigger>
           {isOwn && <TabsTrigger value="notifications" className="flex items-center gap-2" data-testid="tab-notifications"><Bell className="w-4 h-4" /> Notifications</TabsTrigger>}
