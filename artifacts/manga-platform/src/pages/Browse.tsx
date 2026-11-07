@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { LANGUAGES } from "@/lib/languages";
+import { POPULAR_LANGUAGES, MORE_LANGUAGES } from "@/lib/languages";
 import { AdSlot } from "@/components/AdSlot";
 import { Link } from "wouter";
 import { useListManga, useListGenres } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Eye, Heart, BookOpen, Filter } from "lucide-react";
@@ -72,7 +72,14 @@ export default function Browse() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Languages</SelectItem>
-            {LANGUAGES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+            <SelectGroup>
+              <SelectLabel>Popular</SelectLabel>
+              {POPULAR_LANGUAGES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+            </SelectGroup>
+            <SelectGroup>
+              <SelectLabel>More languages</SelectLabel>
+              {MORE_LANGUAGES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
+            </SelectGroup>
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={setSort}>

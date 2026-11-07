@@ -1,5 +1,5 @@
 import { isImageFile } from "@/lib/image";
-import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
+import { POPULAR_LANGUAGES, MORE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
 import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
@@ -88,7 +88,7 @@ function UploadManga({ onDone, canPublish }: { onDone: () => void; canPublish: b
               </select>
             </div>
             <div><label className={label}>Language</label>
-              <select value={f.language} onChange={e => setF({ ...f, language: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-3 text-sm">{LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</select>
+              <select value={f.language} onChange={e => setF({ ...f, language: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-3 text-sm"><optgroup label="Popular">{POPULAR_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</optgroup><optgroup label="More languages">{MORE_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</optgroup></select>
             </div>
           </div>
           <div><label className={label}>Tags</label><Input value={f.tags} onChange={e => setF({ ...f, tags: e.target.value })} placeholder="comma separated, e.g. revenge, school" /></div>
@@ -283,7 +283,7 @@ function ProductEditor({ initial, hasExistingFile, onClose }: { initial: Product
         <div><label className={label}>Description</label><Textarea rows={4} value={f.description} onChange={set("description")} /></div>
         <div className="grid grid-cols-3 gap-3">
           <div><label className={label}>Genre</label><select value={f.genre} onChange={set("genre")} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm"><option value="">—</option>{genres?.map(g => <option key={g.id}>{g.name}</option>)}</select></div>
-          <div><label className={label}>Language</label><select value={f.language} onChange={set("language")} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm">{LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</select></div>
+          <div><label className={label}>Language</label><select value={f.language} onChange={set("language")} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm"><optgroup label="Popular">{POPULAR_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</optgroup><optgroup label="More languages">{MORE_LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</optgroup></select></div>
           <div><label className={label}>Pages</label><Input type="number" min="1" value={f.pageCount} onChange={set("pageCount")} /></div>
         </div>
 
