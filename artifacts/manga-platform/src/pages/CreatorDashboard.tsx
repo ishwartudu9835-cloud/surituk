@@ -189,7 +189,7 @@ function UploadChapter({ myManga }: { myManga: { id: number; title: string; chap
           <FileUp className="w-8 h-8 mx-auto text-primary mb-2" />
           <p className="font-medium">Drop chapter pages or a PDF here, or click to choose</p>
           <p className="text-xs text-muted-foreground mt-1">PDF, or images (JPG / PNG / WEBP) · up to 200 pages · images are sorted by file name (01.jpg, 02.jpg…)</p>
-          <input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" className="hidden" onChange={e => { add(e.target.files); e.target.value = ""; }} />
+          <input ref={input} type="file" multiple accept="image/*,application/pdf,.pdf" className="sr-only" tabIndex={-1} onChange={e => { add(e.target.files); e.target.value = ""; }} />
         </div>
 
         {converting && <p className="text-sm text-accent flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {converting}</p>}
@@ -306,7 +306,7 @@ function ProductEditor({ initial, hasExistingFile, onClose }: { initial: Product
               <Button type="button" variant="outline" onClick={() => fileInput.current?.click()} disabled={pct !== null}>
                 {pct !== null ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> {pct}%</> : <><FileUp className="w-4 h-4 mr-2" /> {f.digitalFileKey || hasExistingFile ? "Replace book file" : "Upload book file *"}</>}
               </Button>
-              <input ref={fileInput} type="file" accept=".pdf,.epub,.cbz,application/pdf,application/epub+zip" className="hidden" onChange={e => { uploadBook(e.target.files?.[0]); e.target.value = ""; }} />
+              <input ref={fileInput} type="file" accept=".pdf,.epub,.cbz,application/pdf,application/epub+zip" className="sr-only" tabIndex={-1} onChange={e => { uploadBook(e.target.files?.[0]); e.target.value = ""; }} />
               <p className="text-xs text-muted-foreground mt-2">{f.digitalFileKey ? `✓ ${f.digitalFileName} uploaded` : hasExistingFile ? `Current file: ${f.digitalFileName}` : "PDF, EPUB or CBZ · max 150 MB · only buyers can download it"}</p>
             </div>
           </div>

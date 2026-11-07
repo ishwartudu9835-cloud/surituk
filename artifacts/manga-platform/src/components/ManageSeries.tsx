@@ -107,9 +107,9 @@ function ChapterEditor({ chapter, onClose }: { chapter: Chapter; onClose: () => 
         <Button type="button" variant="outline" disabled={busy} onClick={() => { if (confirm("Replace ALL pages of this chapter with new files?")) { input.current!.dataset.replace = "1"; input.current?.click(); } }}><Images className="w-4 h-4 mr-2" /> Replace all pages</Button>
         <p className="text-xs text-muted-foreground self-center">Images or PDF. Hover a page to move, replace or delete it.</p>
       </div>
-      <input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" className="hidden"
+      <input ref={input} type="file" multiple accept="image/*,application/pdf,.pdf" className="sr-only" tabIndex={-1}
         onChange={e => { const r = e.target.dataset.replace === "1"; e.target.dataset.replace = ""; add(e.target.files, r); e.target.value = ""; }} />
-      <input ref={oneInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+      <input ref={oneInput} type="file" accept="image/*" className="sr-only" tabIndex={-1}
         onChange={e => { const f = e.target.files?.[0]; const i = replaceOne.current; if (f && i !== null) setItems(prev => prev.map((it, j) => j === i ? fromFile(f) : it)); e.target.value = ""; }} />
 
       {converting && <p className="text-sm text-accent flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {converting}</p>}

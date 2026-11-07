@@ -1,4 +1,5 @@
 import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { prepareImage, IMAGE_PRESETS } from "./image";
 
 /** Base URL of the API. Empty = same origin (local dev proxy / Replit). */
 export const API_URL = ((import.meta.env.VITE_API_URL as string | undefined) ?? "").replace(/\/+$/, "");
@@ -56,7 +57,13 @@ export function getRef(): string | undefined {
   try { return localStorage.getItem("surituk.ref") ?? undefined; } catch { return undefined; }
 }
 
-export function uploadFiles<T>(path: string, field: string, files: File[], onProgress?: (pct: number) => void): Promise<T> {
+export async function uploadFiles<T>(path: string, field: string, files: File[], onProgress?: (pct: number) => void): Promise<T> {
+  const preset = IMAGE_PRESETS[path];
+  if (preset) files = await Promise.all(files.map(f => prepareImage(f, preset)));
+  return sendFiles<T>(path, field, files, onProgress);
+}
+
+function sendFiles<T>(path: string, field: string, files: File[], onProgress?: (pct: number) => void): Promise<T> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
     files.forEach(f => form.append(field, f));
@@ -71,7 +78,9 @@ export function uploadFiles<T>(path: string, field: string, files: File[], onPro
       if (xhr.status >= 200 && xhr.status < 300) resolve(data as T);
       else reject(new ApiError(data?.error ?? `Upload failed (${xhr.status})`, xhr.status));
     };
-    xhr.onerror = () => reject(new ApiError("Network error during upload", 0));
+    xhr.onerror = () => reject(new ApiError("Upload failed — check your internet connection and try again", 0));
+    xhr.timeout = 180_000;
+    xhr.ontimeout = () => reject(new ApiError("Upload took too long. Try a smaller file or a better connection.", 0));
     xhr.send(form);
   });
 }

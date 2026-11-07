@@ -69,7 +69,7 @@ function SampleUploader({ value, onChange }: { value: string[]; onChange: (v: st
           </button>
         )}
       </div>
-      <input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => { add(e.target.files); e.target.value = ""; }} />
+      <input ref={input} type="file" multiple accept="image/*" className="sr-only" tabIndex={-1} onChange={e => { add(e.target.files); e.target.value = ""; }} />
       {err && <p className="text-sm text-red-400 mt-2">{err}</p>}
     </div>
   );
