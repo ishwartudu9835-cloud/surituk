@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
 import { IMAGE_ACCEPT, isImageFile } from "@/lib/image";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,7 +20,6 @@ type Chapter = { id: number; chapterNumber: number; title: string; pages: string
 
 const card = "p-6 rounded-xl border border-border bg-card/40";
 const label = "text-sm font-medium mb-1.5 block";
-const LANGUAGES = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Marathi", "Japanese", "Korean", "Other"];
 const naturalSort = (a: File, b: File) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
 
 /* ---------- Chapter page editor ---------- */
@@ -250,7 +250,7 @@ export function ManageSeries({ seriesId, onBack }: { seriesId: number; onBack: (
           <div><label className={label}>Description</label><Textarea rows={5} value={form.description ?? ""} onChange={e => set({ description: e.target.value })} /></div>
           <div className="grid grid-cols-3 gap-3">
             <div><label className={label}>Genre</label><select value={form.genre} onChange={e => set({ genre: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm">{genres?.map(g => <option key={g.id}>{g.name}</option>)}</select></div>
-            <div><label className={label}>Language</label><select value={form.language} onChange={e => set({ language: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm">{LANGUAGES.map(l => <option key={l}>{l}</option>)}</select></div>
+            <div><label className={label}>Language</label><select value={form.language} onChange={e => set({ language: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm">{LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</select></div>
             <div><label className={label}>Status</label><select value={form.status} onChange={e => set({ status: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm"><option value="ongoing">Ongoing</option><option value="completed">Completed</option><option value="hiatus">On break</option></select></div>
           </div>
           <div><label className={label}>Tags</label><Input value={form.tagsText ?? ""} onChange={e => set({ tagsText: e.target.value })} placeholder="comma separated" /></div>

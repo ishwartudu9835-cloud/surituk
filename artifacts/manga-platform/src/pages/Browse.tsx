@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LANGUAGES } from "@/lib/languages";
 import { AdSlot } from "@/components/AdSlot";
 import { Link } from "wouter";
 import { useListManga, useListGenres } from "@workspace/api-client-react";
@@ -66,14 +67,12 @@ export default function Browse() {
           </SelectContent>
         </Select>
         <Select value={language} onValueChange={setLanguage}>
-          <SelectTrigger className="w-full md:w-36 bg-background/50" data-testid="select-language">
+          <SelectTrigger className="w-full md:w-48 bg-background/50" data-testid="select-language">
             <SelectValue placeholder="Language" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Languages</SelectItem>
-            <SelectItem value="English">English</SelectItem>
-            <SelectItem value="Japanese">Japanese</SelectItem>
-            <SelectItem value="Korean">Korean</SelectItem>
+            {LANGUAGES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={sort} onValueChange={setSort}>

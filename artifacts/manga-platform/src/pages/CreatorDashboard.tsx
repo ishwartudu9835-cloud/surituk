@@ -1,4 +1,5 @@
 import { isImageFile } from "@/lib/image";
+import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
 import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
@@ -40,7 +41,6 @@ const sidebarItems: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: "settings", label: "Creator Page", icon: <Settings className="w-4 h-4" /> },
 ];
 
-const LANGUAGES = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Marathi", "Japanese", "Korean", "Other"];
 const RED = "hsl(358 80% 52%)";
 const card = "p-6 rounded-xl border border-border bg-card/40";
 const label = "text-sm font-medium mb-1.5 block";
@@ -51,7 +51,7 @@ const naturalSort = (a: File, b: File) => a.name.localeCompare(b.name, undefined
 function UploadManga({ onDone, canPublish }: { onDone: () => void; canPublish: boolean }) {
   const qc = useQueryClient();
   const { data: genres } = useListGenres();
-  const [f, setF] = useState({ title: "", description: "", genre: "", language: "English", coverImage: "", bannerImage: "", tags: "", isMature: false });
+  const [f, setF] = useState({ title: "", description: "", genre: "", language: DEFAULT_LANGUAGE, coverImage: "", bannerImage: "", tags: "", isMature: false });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -88,7 +88,7 @@ function UploadManga({ onDone, canPublish }: { onDone: () => void; canPublish: b
               </select>
             </div>
             <div><label className={label}>Language</label>
-              <select value={f.language} onChange={e => setF({ ...f, language: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-3 text-sm">{LANGUAGES.map(l => <option key={l}>{l}</option>)}</select>
+              <select value={f.language} onChange={e => setF({ ...f, language: e.target.value })} className="w-full h-10 rounded-md bg-background border border-input px-3 text-sm">{LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</select>
             </div>
           </div>
           <div><label className={label}>Tags</label><Input value={f.tags} onChange={e => setF({ ...f, tags: e.target.value })} placeholder="comma separated, e.g. revenge, school" /></div>
@@ -229,7 +229,7 @@ type ProductForm = {
   format: "digital" | "physical" | "both"; digitalPrice: string; physicalPrice: string; shippingFee: string; stock: string;
   coverImage: string; digitalFileKey: string; digitalFileName: string; status: string;
 };
-const emptyProduct: ProductForm = { title: "", description: "", genre: "", language: "English", pageCount: "", format: "digital", digitalPrice: "", physicalPrice: "", shippingFee: "0", stock: "", coverImage: "", digitalFileKey: "", digitalFileName: "", status: "active" };
+const emptyProduct: ProductForm = { title: "", description: "", genre: "", language: DEFAULT_LANGUAGE, pageCount: "", format: "digital", digitalPrice: "", physicalPrice: "", shippingFee: "0", stock: "", coverImage: "", digitalFileKey: "", digitalFileName: "", status: "active" };
 const toForm = (p: Product): ProductForm => ({
   id: p.id, title: p.title, description: p.description ?? "", genre: p.genre ?? "", language: p.language, pageCount: p.pageCount ? String(p.pageCount) : "",
   format: p.format, digitalPrice: p.digitalPrice ? String(p.digitalPrice / 100) : "", physicalPrice: p.physicalPrice ? String(p.physicalPrice / 100) : "",
@@ -283,7 +283,7 @@ function ProductEditor({ initial, hasExistingFile, onClose }: { initial: Product
         <div><label className={label}>Description</label><Textarea rows={4} value={f.description} onChange={set("description")} /></div>
         <div className="grid grid-cols-3 gap-3">
           <div><label className={label}>Genre</label><select value={f.genre} onChange={set("genre")} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm"><option value="">—</option>{genres?.map(g => <option key={g.id}>{g.name}</option>)}</select></div>
-          <div><label className={label}>Language</label><select value={f.language} onChange={set("language")} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm">{LANGUAGES.map(l => <option key={l}>{l}</option>)}</select></div>
+          <div><label className={label}>Language</label><select value={f.language} onChange={set("language")} className="w-full h-10 rounded-md bg-background border border-input px-2 text-sm">{LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}</select></div>
           <div><label className={label}>Pages</label><Input type="number" min="1" value={f.pageCount} onChange={set("pageCount")} /></div>
         </div>
 
