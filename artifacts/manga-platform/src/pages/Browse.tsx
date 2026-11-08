@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { mangaHref, formatCount } from "@/lib/links";
+import { mangaHref, formatCount, creatorHref } from "@/lib/links";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { POPULAR_LANGUAGES, MORE_LANGUAGES } from "@/lib/languages";
 import { AdSlot } from "@/components/AdSlot";
 import { Link } from "wouter";
@@ -8,15 +10,24 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Eye, Heart, BookOpen, Filter } from "lucide-react";
+import { Search, Eye, Heart, BookOpen, Filter, CheckCircle, Building2, Users } from "lucide-react";
 import { motion } from "framer-motion";
 
+type CreatorHit = { id: number; name: string; slug?: string | null; avatar: string; type?: string; isVerified?: boolean; followers?: number; totalManga?: number; city?: string | null };
+
 export default function Browse() {
-  const [search, setSearch] = useState("");
+  const initialQ = new URLSearchParams(window.location.search).get("q") ?? "";
+  const [search, setSearch] = useState(initialQ);
+  const [creatorType, setCreatorType] = useState<"all" | "individual" | "studio">("all");
   const [genre, setGenre] = useState("all");
   const [language, setLanguage] = useState("all");
   const [sort, setSort] = useState("trending");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(initialQ);
+  const { data: creatorHits } = useQuery({
+    queryKey: ["creator-search", debouncedSearch, creatorType],
+    queryFn: () => api<CreatorHit[]>(`/creators?limit=12&search=${encodeURIComponent(debouncedSearch)}${creatorType !== "all" ? `&type=${creatorType}` : ""}`),
+    enabled: debouncedSearch.trim().length > 0,
+  });
 
   const { data: genres } = useListGenres();
   const { data: manga, isLoading } = useListManga({
@@ -30,7 +41,11 @@ export default function Browse() {
   const handleSearch = (v: string) => {
     setSearch(v);
     clearTimeout((window as { _st?: ReturnType<typeof setTimeout> })._st);
-    (window as { _st?: ReturnType<typeof setTimeout> })._st = setTimeout(() => setDebouncedSearch(v), 400);
+    (window as { _st?: ReturnType<typeof setTimeout> })._st = setTimeout(() => {
+      setDebouncedSearch(v);
+      const url = v.trim() ? `/browse?q=${encodeURIComponent(v.trim())}` : "/browse";
+      window.history.replaceState(null, "", url);
+    }, 400);
   };
 
   const statusColor: Record<string, string> = {
@@ -51,7 +66,8 @@ export default function Browse() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search graphic novels & manga..."
+            placeholder="Search stories, creators or studios..."
+            autoFocus={!!initialQ || new URLSearchParams(window.location.search).has("search")}
             value={search}
             onChange={e => handleSearch(e.target.value)}
             className="pl-9 bg-background/50"
@@ -130,6 +146,36 @@ export default function Browse() {
           <Filter className="w-4 h-4" />
           {manga.length} results found
         </p>
+      )}
+
+      {/* Creators & studios matching the search */}
+      {debouncedSearch.trim() && (
+        <section className="mb-8" data-testid="creator-results">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <h2 className="text-lg font-bold mr-2">Creators & Studios</h2>
+            {([["all", "All"], ["individual", "Creators"], ["studio", "Studios"]] as const).map(([v, label]) => (
+              <button key={v} onClick={() => setCreatorType(v)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${creatorType === v ? "bg-primary text-primary-foreground border-primary" : "border-white/10 text-muted-foreground hover:border-white/30"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {creatorHits && creatorHits.length > 0 ? (
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+              {creatorHits.map(c => (
+                <Link key={c.id} href={creatorHref(c)} className="shrink-0 w-56 flex items-center gap-3 p-3 rounded-xl border border-border bg-card/50 hover:border-primary/50 transition-colors" data-testid={`creator-hit-${c.id}`}>
+                  <img src={c.avatar} alt={c.name} className="w-12 h-12 rounded-full object-cover border border-white/10" />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm flex items-center gap-1 truncate">{c.name}{c.isVerified && <CheckCircle className="w-3.5 h-3.5 text-primary shrink-0" />}</p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      {c.type === "studio" ? <><Building2 className="w-3 h-3" /> Studio</> : <><Users className="w-3 h-3" /> {formatCount(c.followers ?? 0)} subscribers</>}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : creatorHits ? <p className="text-sm text-muted-foreground">No creators or studios match “{debouncedSearch}”.</p> : null}
+        </section>
       )}
 
       <AdSlot kind="banner" className="mb-6" />

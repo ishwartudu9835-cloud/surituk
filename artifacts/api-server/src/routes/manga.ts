@@ -2,7 +2,7 @@ import { assignMangaSlug } from "../lib/slug";
 import { Router, type IRouter } from "express";
 import { requireCreator, isApprovedCreator } from "../lib/auth";
 import { notifySubscribers } from "../lib/notify";
-import { desc, eq, ilike, and, sql, type SQL } from "drizzle-orm";
+import { desc, eq, ilike, and, sql, type SQL, or } from "drizzle-orm";
 import { visibleManga, canManage } from "../lib/visibility";
 import { db, mangaTable, creatorsTable, genresTable } from "@workspace/db";
 
@@ -24,7 +24,11 @@ router.get("/manga", async (req, res): Promise<void> => {
   const conditions: SQL[] = [visibleManga(req.user)];
   if (genre) conditions.push(eq(mangaTable.genre, genre));
   if (language) conditions.push(eq(mangaTable.language, language));
-  if (search) conditions.push(ilike(mangaTable.title, `%${search}%`));
+  if (search) {
+    // Matches the story title or the creator / studio name.
+    const term = `%${search.trim().slice(0, 80).replace(/[\\%_]/g, m => "\\" + m)}%`;
+    conditions.push(or(ilike(mangaTable.title, term), ilike(creatorsTable.name, term))!);
+  }
 
   let orderBy = desc(mangaTable.views);
   if (sort === "latest" || sort === "new") orderBy = desc(mangaTable.createdAt);

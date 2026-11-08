@@ -113,7 +113,7 @@ function Navbar() {
 
         {/* Right actions */}
         <div className="flex items-center gap-1.5 shrink-0">
-          <Link href="/browse" className="hidden lg:flex items-center w-40 h-9 px-3 rounded-lg bg-white/5 border border-border text-muted-foreground text-sm gap-2 hover:bg-white/8 transition-colors">
+          <Link href="/browse?search=1" className="hidden lg:flex items-center w-40 h-9 px-3 rounded-lg bg-white/5 border border-border text-muted-foreground text-sm gap-2 hover:bg-white/8 transition-colors">
             <Search className="w-3.5 h-3.5 shrink-0" /> Search...
           </Link>
           {me && (

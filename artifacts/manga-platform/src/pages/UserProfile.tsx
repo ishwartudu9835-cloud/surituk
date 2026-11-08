@@ -65,6 +65,7 @@ export default function UserProfile() {
     contest: "bg-primary/20 text-primary border-primary/30",
     reward: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
     system: "bg-white/10 text-muted-foreground border-white/20",
+    post: "bg-primary/20 text-primary border-primary/30",
   };
 
   return (

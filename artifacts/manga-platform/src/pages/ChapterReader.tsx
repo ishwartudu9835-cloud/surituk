@@ -1,5 +1,6 @@
 import { useParams, Link } from "wouter";
 import { useResolvedId, useCanonicalPath } from "@/lib/links";
+import { StoryRating } from "@/components/StarRating";
 import { AdSlot } from "@/components/AdSlot";
 import { useGetChapter, useListChapters, getGetChapterQueryKey, getListChaptersQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -127,6 +128,14 @@ export default function ChapterReader() {
           />
         ))}
       </div>
+
+      {/* End of chapter: ask for a rating */}
+      {mId > 0 && (
+        <div className="w-full max-w-2xl mx-auto px-4 pt-8">
+          <p className="text-center text-sm text-muted-foreground mb-3">Finished Chapter {chapter.chapterNumber}? Tell others what you think.</p>
+          <StoryRating mangaId={mId} isOwner={!!me && me.creatorId === (chapter as { creatorId?: number }).creatorId} />
+        </div>
+      )}
 
       {/* Ad after the last page — never between pages, so reading isn't interrupted */}
       <div className="w-full max-w-2xl mx-auto px-4 py-8">

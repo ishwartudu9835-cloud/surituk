@@ -1,5 +1,7 @@
 import { useParams, Link } from "wouter";
 import { useResolvedId, useCanonicalPath, mangaHref } from "@/lib/links";
+import { PostFeed, NewPostButton } from "@/components/CommunityPosts";
+import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { useGetCreator, useGetCreatorAnalytics, useListManga, getGetCreatorQueryKey, getGetCreatorAnalyticsQueryKey, getListMangaQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +26,8 @@ export default function CreatorProfile() {
   const creatorManga = manga?.filter(m => m.creatorId === id) ?? [];
   const { data: team } = useQuery({ queryKey: ["team-public", id], queryFn: () => api<{ name: string; role: string; avatar: string | null }[]>(`/creators/${id}/team`), enabled: !!id });
   const extra = creator as unknown as { type?: string; city?: string | null; state?: string | null; isRegisteredStudio?: boolean; socialLinks?: { youtube?: string | null } } | undefined;
+  const { me } = useAuth();
+  const isOwner = !!me && me.creatorId === id;
   useCanonicalPath(creatorId, (creator as { slug?: string | null } | undefined)?.slug, k => `/creator/${k}`);
   const isStudio = extra?.type === "studio";
   const location = [extra?.city, extra?.state].filter(Boolean).join(", ");
@@ -117,6 +121,15 @@ export default function CreatorProfile() {
             ))}
           </div>
         ) : <p className="text-muted-foreground mb-12">No series published yet.</p>}
+
+        {/* Posts & updates from this creator (also shown in Community) */}
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <h2 className="text-2xl font-bold brush-underline">Posts & Updates</h2>
+          {isOwner && <NewPostButton compact />}
+        </div>
+        <div className="mb-12 max-w-3xl">
+          <PostFeed creatorId={id} emptyText={isOwner ? "Share an update, a sneak peek or ask your readers a question." : "No posts yet. Subscribe to get notified when they post."} />
+        </div>
 
         {/* Store books */}
         {books && books.length > 0 && (

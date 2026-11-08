@@ -15,3 +15,4 @@ export * from "./orders";
 export * from "./payouts";
 export * from "./subscriptions";
 export * from "./creator_program";
+export * from "./ratings";

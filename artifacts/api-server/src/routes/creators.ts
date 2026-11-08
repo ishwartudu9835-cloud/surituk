@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, or, ilike } from "drizzle-orm";
 import { canManage } from "../lib/visibility";
 import { db, creatorsTable, mangaTable } from "@workspace/db";
 
@@ -37,8 +37,16 @@ function formatCreator(c: typeof creatorsTable.$inferSelect) {
 }
 
 router.get("/creators", async (req, res): Promise<void> => {
-  const limit = Math.min(parseInt((req.query.limit as string) || "10", 10), 50);
-  const rows = await db.select().from(creatorsTable).where(eq(creatorsTable.status, "approved")).orderBy(desc(creatorsTable.followers)).limit(limit);
+  const limit = Math.min(parseInt((req.query.limit as string) || "10", 10) || 10, 50);
+  const search = String(req.query.search ?? "").trim().slice(0, 80);
+  const type = String(req.query.type ?? "");
+  const conds = [eq(creatorsTable.status, "approved")];
+  if (search) {
+    const term = `%${search.replace(/[\\%_]/g, m => "\\" + m)}%`;
+    conds.push(or(ilike(creatorsTable.name, term), ilike(creatorsTable.slug, term))!);
+  }
+  if (type === "studio" || type === "individual") conds.push(eq(creatorsTable.type, type));
+  const rows = await db.select().from(creatorsTable).where(and(...conds)).orderBy(desc(creatorsTable.followers)).limit(limit);
   res.json(rows.map(formatCreator));
 });
 

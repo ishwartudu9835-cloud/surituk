@@ -53,6 +53,27 @@ export async function runMigrations() {
     `ALTER TABLE manga ADD COLUMN IF NOT EXISTS slug text`,
     `CREATE UNIQUE INDEX IF NOT EXISTS manga_slug_unique ON manga (slug)`,
     `ALTER TABLE creators ADD COLUMN IF NOT EXISTS slug text`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked boolean NOT NULL DEFAULT false`,
+    // --- polls ---
+    `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS poll_options text[] NOT NULL DEFAULT '{}'`,
+    `CREATE TABLE IF NOT EXISTS community_poll_votes (
+      post_id integer NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      option smallint NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (post_id, user_id)
+    )`,
+    // --- 5-star ratings ---
+    `ALTER TABLE manga ADD COLUMN IF NOT EXISTS rating_count integer NOT NULL DEFAULT 0`,
+    `CREATE TABLE IF NOT EXISTS manga_ratings (
+      manga_id integer NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      stars smallint NOT NULL CHECK (stars BETWEEN 1 AND 5),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (manga_id, user_id)
+    )`,
+    // Old demo ratings had no real votes behind them; start from real reader ratings only.
+    `UPDATE manga SET rating = 0 WHERE rating_count = 0 AND rating <> 0 AND NOT EXISTS (SELECT 1 FROM manga_ratings r WHERE r.manga_id = manga.id)`,
     // --- community: creator-only posts with photos, replies from anyone, likes ---
     `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS images text[] NOT NULL DEFAULT '{}'`,
     `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS creator_id integer`,

@@ -19,6 +19,7 @@ export const mangaTable = pgTable("manga", {
   likes: integer("likes").notNull().default(0),
   chapterCount: integer("chapter_count").notNull().default(0),
   rating: real("rating").default(0),
+  ratingCount: integer("rating_count").notNull().default(0),
   isFeatured: boolean("is_featured").notNull().default(false),
   isSponsored: boolean("is_sponsored").notNull().default(false),
   isPublished: boolean("is_published").notNull().default(true),

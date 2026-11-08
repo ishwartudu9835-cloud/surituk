@@ -21,6 +21,8 @@ export const usersTable = pgTable("users", {
   favoriteGenres: text("favorite_genres").array().notNull().default([]),
   uiLanguage: text("ui_language").notNull().default("en"),
   onboarded: boolean("onboarded").notNull().default(false),
+  /** Blocked by an admin from posting, replying, liking, voting and rating. */
+  blocked: boolean("blocked").notNull().default(false),
   referredBy: integer("referred_by"), // creator id whose referral link brought this user
   lastIp: text("last_ip"),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),

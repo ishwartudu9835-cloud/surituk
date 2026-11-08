@@ -204,4 +204,15 @@ if (features.store) {
   });
 }
 
+/** Block / unblock a user from the community (likes, replies, votes, ratings, posts). */
+router.post("/admin/users/:id/block", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(String(req.params.id), 10);
+  const blocked = req.body?.blocked !== false;
+  const [u] = await db.update(usersTable).set({ blocked }).where(eq(usersTable.id, id)).returning({ id: usersTable.id, role: usersTable.role, displayName: usersTable.displayName });
+  if (!u) { res.status(404).json({ error: "User not found" }); return; }
+  if (u.role === "admin") { await db.update(usersTable).set({ blocked: false }).where(eq(usersTable.id, id)); res.status(400).json({ error: "Admins can't be blocked" }); return; }
+  await audit(req.user!.id, blocked ? "user.block" : "user.unblock", "user", id, { name: u.displayName });
+  res.json({ ok: true, blocked });
+});
+
 export default router;

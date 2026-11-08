@@ -18,6 +18,7 @@ import subscriptionsRouter from "./subscriptions";
 import studioRouter from "./studio";
 import readerRouter from "./reader";
 import proRouter from "./pro";
+import ratingsRouter from "./ratings";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,7 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(readerRouter);
 router.use(proRouter);
+router.use(ratingsRouter);
 router.use(mangaRouter);
 router.use(chaptersRouter);
 router.use(creatorsRouter);

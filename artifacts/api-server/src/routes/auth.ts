@@ -1,6 +1,7 @@
+import { isDisposableEmail } from "../lib/trust";
 import crypto from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
-import { and, desc, eq, isNull, gt } from "drizzle-orm";
+import { and, desc, eq, isNull, gt, sql } from "drizzle-orm";
 import { db, usersTable, otpCodesTable, creatorsTable } from "@workspace/db";
 import { config, isProd } from "../lib/config";
 import { createSessionToken, publicUser, requireAuth } from "../lib/auth";
@@ -43,6 +44,9 @@ async function uniqueUsername(base: string) {
   return `${clean}${Date.now()}`;
 }
 
+const NEW_ACCOUNTS_PER_IP_PER_DAY = Number(process.env.NEW_ACCOUNTS_PER_IP_PER_DAY ?? 5);
+class SignupLimitError extends Error { constructor() { super("Too many new accounts from this network today. Please try again tomorrow."); } }
+
 async function findOrCreateUser(email: string, extra: { name?: string; picture?: string; googleId?: string; ref?: string; ip?: string } = {}) {
   email = email.toLowerCase();
   const isAdmin = config.adminEmails.includes(email);
@@ -60,6 +64,13 @@ async function findOrCreateUser(email: string, extra: { name?: string; picture?:
     if (extra.ip && extra.ip !== user.lastIp) patch.lastIp = extra.ip;
     if (Object.keys(patch).length) [user] = await db.update(usersTable).set(patch).where(eq(usersTable.id, user.id)).returning();
     return user;
+  }
+
+  // Fake-account guard: at most a few new accounts per network per day.
+  if (extra.ip && !isAdmin) {
+    const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(usersTable)
+      .where(and(eq(usersTable.lastIp, extra.ip), sql`${usersTable.joinedAt} > now() - interval '24 hours'`));
+    if (n >= NEW_ACCOUNTS_PER_IP_PER_DAY) throw new SignupLimitError();
   }
 
   const displayName = extra.name || email.split("@")[0];
@@ -86,6 +97,7 @@ async function findOrCreateUser(email: string, extra: { name?: string; picture?:
 router.post("/auth/otp/request", async (req, res): Promise<void> => {
   const email = String(req.body?.email ?? "").trim().toLowerCase();
   if (!EMAIL_RE.test(email)) { res.status(400).json({ error: "Please enter a valid email address" }); return; }
+  if (isDisposableEmail(email)) { res.status(400).json({ error: "Temporary email addresses aren't allowed. Please use your real email or Google login." }); return; }
   if (!mailEnabled && isProd) { res.status(503).json({ error: "Email login is not set up yet. Please use Google login." }); return; }
   if (tooMany(`otp-ip:${ipOf(req)}`, Number(process.env.OTP_IP_LIMIT ?? 10), 10 * 60 * 1000)) { res.status(429).json({ error: "Too many requests. Try again in a few minutes." }); return; }
 
@@ -130,7 +142,9 @@ router.post("/auth/otp/verify", async (req, res): Promise<void> => {
   }
   await db.update(otpCodesTable).set({ consumedAt: new Date() }).where(eq(otpCodesTable.id, otp.id));
 
-  const user = await findOrCreateUser(email, { ref: typeof req.body?.ref === "string" ? req.body.ref : undefined, ip: ipOf(req) });
+  let user;
+  try { user = await findOrCreateUser(email, { ref: typeof req.body?.ref === "string" ? req.body.ref : undefined, ip: ipOf(req) }); }
+  catch (e) { if (e instanceof SignupLimitError) { res.status(429).json({ error: e.message }); return; } throw e; }
   res.json({ token: createSessionToken(user.id), user: publicUser(user) });
 });
 
@@ -152,7 +166,9 @@ router.post("/auth/google", async (req, res): Promise<void> => {
     return;
   }
 
-  const user = await findOrCreateUser(info.email, { name: info.name, picture: info.picture, googleId: info.sub, ref: typeof req.body?.ref === "string" ? req.body.ref : undefined, ip: ipOf(req) });
+  let user;
+  try { user = await findOrCreateUser(info.email, { name: info.name, picture: info.picture, googleId: info.sub, ref: typeof req.body?.ref === "string" ? req.body.ref : undefined, ip: ipOf(req) }); }
+  catch (e) { if (e instanceof SignupLimitError) { res.status(429).json({ error: e.message }); return; } throw e; }
   res.json({ token: createSessionToken(user.id), user: publicUser(user) });
 });
 

@@ -1,4 +1,5 @@
 import { Link, useParams } from "wouter";
+import { StoryRating } from "@/components/StarRating";
 import { useResolvedId, useCanonicalPath, mangaHref, creatorHrefFromManga, formatCount } from "@/lib/links";
 import { SubscribeButton } from "@/components/SubscribeButton";
 import { useQuery } from "@tanstack/react-query";
@@ -115,11 +116,11 @@ export default function MangaDetail() {
               </Link>
               <SubscribeButton creatorId={manga.creatorId} size="sm" />
             </div>
-            <div className="flex items-center gap-6 mt-4 text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1.5"><Eye className="w-4 h-4" />{manga.views.toLocaleString()} views</span>
               <span className="flex items-center gap-1.5"><Heart className="w-4 h-4" />{manga.likes.toLocaleString()} likes</span>
               <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4" />{manga.chapterCount} chapters</span>
-              {manga.rating != null && manga.rating > 0 && <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-yellow-400" />{manga.rating.toFixed(1)}</span>}
+              {manga.rating != null && manga.rating > 0 && <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />{manga.rating.toFixed(1)}{(manga as { ratingCount?: number }).ratingCount ? <span className="text-xs">({(manga as { ratingCount?: number }).ratingCount})</span> : null}</span>}
             </div>
             {manga.description && <p className="mt-4 text-muted-foreground leading-relaxed">{manga.description}</p>}
 
@@ -131,7 +132,11 @@ export default function MangaDetail() {
               </div>
             )}
 
-            <div className="flex gap-3 mt-6">
+            <div className="mt-6 max-w-sm">
+              <StoryRating mangaId={manga.id} isOwner={me?.creatorId === manga.creatorId} />
+            </div>
+
+            <div className="flex flex-wrap gap-3 mt-6">
               {mine?.lastChapterId ? (
                 <Button asChild size="lg" className="bg-primary hover:bg-primary/90" data-testid="button-read">
                   <Link href={resumeHref(mine)}>
