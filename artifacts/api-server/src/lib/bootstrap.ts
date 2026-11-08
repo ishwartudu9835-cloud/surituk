@@ -50,6 +50,10 @@ export async function runMigrations() {
     // --- manga ---
     `ALTER TABLE manga ADD COLUMN IF NOT EXISTS is_published boolean NOT NULL DEFAULT true`,
     `ALTER TABLE manga ADD COLUMN IF NOT EXISTS is_mature boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE manga ADD COLUMN IF NOT EXISTS slug text`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS manga_slug_unique ON manga (slug)`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS slug text`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS creators_slug_unique ON creators (slug)`,
     // --- reading history ---
     `ALTER TABLE reading_history ALTER COLUMN last_chapter TYPE real`,
     `ALTER TABLE reading_history ADD COLUMN IF NOT EXISTS last_chapter_id integer`,

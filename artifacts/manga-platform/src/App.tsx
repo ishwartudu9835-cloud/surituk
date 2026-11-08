@@ -270,6 +270,7 @@ function Router() {
             <Route path="/creator/:creatorId" component={CreatorProfile} />
             <Route path="/creator-dashboard" component={CreatorDashboard} />
             <Route path="/profile" component={UserProfile} />
+            <Route path="/u/:username" component={UserProfile} />
             <Route path="/user/:userId" component={UserProfile} />
             <Route path="/genres/:slug" component={GenrePage} />
             <Route path="/login" component={Login} />

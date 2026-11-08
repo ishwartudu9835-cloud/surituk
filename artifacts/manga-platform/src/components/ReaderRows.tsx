@@ -1,11 +1,12 @@
 import { Link } from "wouter";
+import { mangaHref } from "@/lib/links";
 import { useQuery } from "@tanstack/react-query";
 import { History, Sparkles } from "lucide-react";
 import { api, type HistoryItem, type SeriesCard } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export const resumeHref = (h: HistoryItem) =>
-  h.lastChapterId ? `/manga/${h.id}/chapter/${h.lastChapterId}${h.lastPage ? `?page=${h.lastPage}` : ""}` : `/manga/${h.id}`;
+  h.lastChapterId ? `${mangaHref(h as never)}/chapter/${h.lastChapterId}${h.lastPage ? `?page=${h.lastPage}` : ""}` : mangaHref(h as never);
 
 function ContinueCard({ h }: { h: HistoryItem }) {
   return (
@@ -22,7 +23,7 @@ function ContinueCard({ h }: { h: HistoryItem }) {
 
 export function SeriesTile({ m }: { m: SeriesCard }) {
   return (
-    <Link href={`/manga/${m.id}`} className="group shrink-0 w-36 sm:w-40">
+    <Link href={mangaHref(m as never)} className="group shrink-0 w-36 sm:w-40">
       <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-border mb-2 bg-card">
         <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
         {m.isMature && <span className="absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary">18+</span>}

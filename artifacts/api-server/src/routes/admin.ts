@@ -1,3 +1,4 @@
+import { assignCreatorSlug } from "../lib/slug";
 import crypto from "node:crypto";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, sql, type SQL } from "drizzle-orm";
@@ -145,6 +146,7 @@ router.post("/admin/creators", requireAdmin, async (req, res): Promise<void> => 
   }
   const code = `${name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) || "creator"}${crypto.randomInt(100, 9999)}`;
   const [c] = await db.insert(creatorsTable).values({ name, type, status: "approved", avatar: user.avatar, ownerUserId: user.id, referralCode: code }).returning();
+    c.slug = await assignCreatorSlug(c.id, c.name);
   await db.update(usersTable).set({ creatorId: c.id, role: user.role === "admin" ? "admin" : "creator" }).where(eq(usersTable.id, user.id));
   if (type === "studio") await db.insert(teamMembersTable).values({ creatorId: c.id, userId: user.id, name, email, role: "owner", status: "active" });
   await notifyUser(user.id, "You've been added as a creator on Surituk. Creator Studio is open.", {

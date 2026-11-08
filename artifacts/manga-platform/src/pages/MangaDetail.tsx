@@ -1,4 +1,5 @@
 import { Link, useParams } from "wouter";
+import { useResolvedId, useCanonicalPath, mangaHref, creatorHrefFromManga, formatCount } from "@/lib/links";
 import { SubscribeButton } from "@/components/SubscribeButton";
 import { useQuery } from "@tanstack/react-query";
 import { api, type HistoryItem } from "@/lib/api";
@@ -16,7 +17,7 @@ import { useState } from "react";
 
 export default function MangaDetail() {
   const { mangaId } = useParams<{ mangaId: string }>();
-  const id = parseInt(mangaId, 10);
+  const { id, notFound, loading: resolving } = useResolvedId("manga", mangaId);
   const { data: manga, isLoading, error } = useGetManga(id, { query: { enabled: !!id, queryKey: getGetMangaQueryKey(id), retry: false } });
   const { me } = useAuth();
   const { data: history } = useQuery({ queryKey: ["history", me?.id], queryFn: () => api<HistoryItem[]>("/me/history"), enabled: !!me });
@@ -24,6 +25,8 @@ export default function MangaDetail() {
   const { data: chapters } = useListChapters(id, { query: { enabled: !!id, queryKey: getListChaptersQueryKey(id) } });
   const { data: trending } = useGetTrendingManga({ limit: 6 });
   const likeMutation = useLikeManga();
+  const slug = (manga as { slug?: string | null } | undefined)?.slug;
+  useCanonicalPath(mangaId, slug, k => `/manga/${k}`);
   const queryClient = useQueryClient();
   const [liked, setLiked] = useState(false);
 
@@ -37,7 +40,7 @@ export default function MangaDetail() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || resolving) {
     return (
       <div className="container px-4 py-8 space-y-8">
         <Skeleton className="h-64 w-full rounded-xl" />
@@ -60,11 +63,11 @@ export default function MangaDetail() {
         <div className="text-3xl font-bold text-primary mb-2">18+</div>
         <h1 className="text-xl font-bold mb-2">This series is for readers 18 and older</h1>
         <p className="text-sm text-muted-foreground mb-6">{me ? "Confirm your age in Settings to view mature content." : "Log in and confirm you're 18+ to view it."}</p>
-        <Button asChild><Link href={me ? "/settings" : `/login?next=/manga/${id}`}>{me ? "Open Settings" : "Log in"}</Link></Button>
+        <Button asChild><Link href={me ? "/settings" : `/login?next=/manga/${mangaId}`}>{me ? "Open Settings" : "Log in"}</Link></Button>
       </div>
     </div>
   );
-  if (!manga) return <div className="container py-20 text-center text-muted-foreground">Graphic novel not found</div>;
+  if (!manga || notFound) return <div className="container py-20 text-center text-muted-foreground">Graphic novel not found</div>;
 
   const statusColor: Record<string, string> = {
     ongoing: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -107,7 +110,7 @@ export default function MangaDetail() {
             </div>
             <h1 className="text-3xl md:text-4xl font-bold mb-2">{manga.title}</h1>
             <div className="flex flex-wrap items-center gap-3">
-              <Link href={`/creator/${manga.creatorId}`} className="text-primary hover:underline text-sm font-medium">
+              <Link href={creatorHrefFromManga(manga as never)} className="text-primary hover:underline text-sm font-medium">
                 by {manga.creatorName}
               </Link>
               <SubscribeButton creatorId={manga.creatorId} size="sm" />
@@ -137,7 +140,7 @@ export default function MangaDetail() {
                 </Button>
               ) : chapters && chapters.length > 0 && (
                 <Button asChild size="lg" className="bg-primary hover:bg-primary/90" data-testid="button-read">
-                  <Link href={`/manga/${manga.id}/chapter/${chapters[0].id}`}>
+                  <Link href={`${mangaHref(manga as never)}/chapter/${chapters[0].id}`}>
                     <BookOpen className="w-4 h-4 mr-2" /> Read Chapter {chapters[0].chapterNumber}
                   </Link>
                 </Button>
@@ -167,7 +170,7 @@ export default function MangaDetail() {
               {chapters.map(ch => (
                 <Link
                   key={ch.id}
-                  href={`/manga/${manga.id}/chapter/${ch.id}`}
+                  href={`${mangaHref(manga as never)}/chapter/${ch.id}`}
                   className="flex items-center justify-between p-4 rounded-xl border border-white/5 hover:border-primary/30 hover:bg-primary/5 transition-all group"
                   data-testid={`link-chapter-${ch.id}`}
                 >
@@ -194,7 +197,7 @@ export default function MangaDetail() {
             <h2 className="text-2xl font-bold mb-6">You May Also Like</h2>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
               {trending.filter(m => m.id !== manga.id).slice(0, 6).map(m => (
-                <Link key={m.id} href={`/manga/${m.id}`} className="group" data-testid={`card-related-${m.id}`}>
+                <Link key={m.id} href={mangaHref(m as never)} className="group" data-testid={`card-related-${m.id}`}>
                   <div className="aspect-[3/4] rounded-lg overflow-hidden border border-white/5 mb-2">
                     <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   </div>

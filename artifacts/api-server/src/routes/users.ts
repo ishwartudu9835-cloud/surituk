@@ -12,13 +12,32 @@ import {
 const router: IRouter = Router();
 
 /**
- * Reader profiles are private: only the owner (or an admin) can see a profile,
- * its reading history, bookmarks and points. Others get a plain 404 so user ids
- * can't be used to discover who is registered.
+ * Lookups by numeric id are owner-only (others get 404, so ids can't be used to list users).
+ * Public profiles are reached by username instead; reading history and bookmarks stay private.
  */
 function canView(req: { user?: { id: number; role?: string | null } | null }, userId: number): boolean {
   return !!req.user && (req.user.id === userId || req.user.role === "admin");
 }
+
+/** Public profile by username ("/u/ishwartudu9835"): name, picture, bio and points only. */
+router.get("/users/by-username/:username", async (req, res): Promise<void> => {
+  const username = String(req.params.username ?? "").trim().toLowerCase();
+  const [row] = await db.select().from(usersTable).where(eq(usersTable.username, username));
+  if (!row) { res.status(404).json({ error: "User not found" }); return; }
+  res.json({
+    id: row.id,
+    username: row.username,
+    displayName: row.displayName,
+    avatar: row.avatar,
+    bio: row.bio ?? null,
+    points: row.points,
+    weeklyPoints: row.weeklyPoints,
+    monthlyPoints: row.monthlyPoints,
+    rank: row.rank ?? null,
+    completedManga: row.completedManga,
+    joinedAt: row.joinedAt?.toISOString() ?? new Date().toISOString(),
+  });
+});
 
 router.get("/users/:userId", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
@@ -58,6 +77,7 @@ router.get("/users/:userId/reading-history", async (req, res): Promise<void> => 
       isCompleted: readingHistoryTable.isCompleted,
       lastReadAt: readingHistoryTable.lastReadAt,
       mangaTitle: mangaTable.title,
+      mangaSlug: mangaTable.slug,
       coverImage: mangaTable.coverImage,
     })
     .from(readingHistoryTable)
@@ -68,6 +88,7 @@ router.get("/users/:userId/reading-history", async (req, res): Promise<void> => 
   res.json(rows.map(r => ({
     mangaId: r.mangaId,
     mangaTitle: r.mangaTitle ?? "Unknown",
+    mangaSlug: r.mangaSlug ?? null,
     coverImage: r.coverImage ?? "",
     lastChapter: r.lastChapter,
     progress: r.progress,
@@ -86,6 +107,7 @@ router.get("/users/:userId/bookmarks", async (req, res): Promise<void> => {
     .select({
       id: mangaTable.id,
       title: mangaTable.title,
+      slug: mangaTable.slug,
       description: mangaTable.description,
       creatorId: mangaTable.creatorId,
       coverImage: mangaTable.coverImage,

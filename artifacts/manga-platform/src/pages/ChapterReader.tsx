@@ -1,4 +1,5 @@
 import { useParams, Link } from "wouter";
+import { useResolvedId, useCanonicalPath } from "@/lib/links";
 import { AdSlot } from "@/components/AdSlot";
 import { useGetChapter, useListChapters, getGetChapterQueryKey, getListChaptersQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { useAuth } from "@/lib/auth";
 
 export default function ChapterReader() {
   const { mangaId, chapterId } = useParams<{ mangaId: string; chapterId: string }>();
-  const mId = parseInt(mangaId, 10);
+  const { id: mId } = useResolvedId("manga", mangaId);
   const cId = parseInt(chapterId, 10);
   const [showNav, setShowNav] = useState(true);
   const { me } = useAuth();
@@ -24,6 +25,9 @@ export default function ChapterReader() {
   const { data: chapters } = useListChapters(mId, {
     query: { enabled: !!mId, queryKey: getListChaptersQueryKey(mId) }
   });
+
+  const seriesSlug = (chapter as { mangaSlug?: string | null } | undefined)?.mangaSlug;
+  useCanonicalPath(mangaId, seriesSlug, k => `/manga/${k}/chapter/${chapterId}`);
 
   const currentIndex = chapters?.findIndex(c => c.id === cId) ?? -1;
   const prevChapter = currentIndex > 0 ? chapters?.[currentIndex - 1] : null;
@@ -78,7 +82,7 @@ export default function ChapterReader() {
   if (!chapter) return (
     <div className="container py-20 text-center text-muted-foreground">
       This chapter isn't available. It may be private, removed, or marked 18+.
-      <div className="mt-4"><Link href={`/manga/${mId}`} className="text-primary">Back to series</Link></div>
+      <div className="mt-4"><Link href={`/manga/${mangaId}`} className="text-primary">Back to series</Link></div>
     </div>
   );
 
@@ -91,7 +95,7 @@ export default function ChapterReader() {
         <div className="sticky top-0 z-50 bg-black/90 backdrop-blur border-b border-white/10 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button asChild variant="ghost" size="sm" data-testid="button-back">
-              <Link href={`/manga/${mId}`}><ChevronLeft className="w-4 h-4 mr-1" /> Back</Link>
+              <Link href={`/manga/${mangaId}`}><ChevronLeft className="w-4 h-4 mr-1" /> Back</Link>
             </Button>
             <div className="text-sm">
               <span className="font-medium">{chapter.mangaTitle}</span>
@@ -139,7 +143,7 @@ export default function ChapterReader() {
           data-testid="button-prev-chapter"
         >
           {prevChapter ? (
-            <Link href={`/manga/${mId}/chapter/${prevChapter.id}`}>
+            <Link href={`/manga/${mangaId}/chapter/${prevChapter.id}`}>
               <ChevronLeft className="w-4 h-4 mr-2" /> Previous
             </Link>
           ) : (
@@ -159,7 +163,7 @@ export default function ChapterReader() {
           data-testid="button-next-chapter"
         >
           {nextChapter ? (
-            <Link href={`/manga/${mId}/chapter/${nextChapter.id}`}>
+            <Link href={`/manga/${mangaId}/chapter/${nextChapter.id}`}>
               Next <ChevronRight className="w-4 h-4 ml-2" />
             </Link>
           ) : (

@@ -1,3 +1,4 @@
+import { assignMangaSlug } from "../lib/slug";
 import { Router, type IRouter, type Request, type Response } from "express";
 import { and, eq, sql } from "drizzle-orm";
 import {
@@ -74,6 +75,8 @@ router.patch("/studio/series/:id", requireCreator, async (req, res): Promise<voi
   }
 
   const [updated] = await db.update(mangaTable).set(patch).where(eq(mangaTable.id, m.id)).returning();
+  // The readable URL follows the title until the series is first published; after that it stays put so shared links keep working.
+  if (patch.title && patch.title !== m.title && !m.isPublished) updated.slug = await assignMangaSlug(updated.id, updated.title);
   if (patch.isPublished !== undefined) {
     const d = patch.isPublished ? 1 : -1;
     await db.update(creatorsTable).set({ totalManga: sql`greatest(${creatorsTable.totalManga} + ${d}, 0)` }).where(eq(creatorsTable.id, m.creatorId));

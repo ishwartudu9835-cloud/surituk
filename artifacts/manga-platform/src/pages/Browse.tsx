@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { mangaHref, formatCount } from "@/lib/links";
 import { POPULAR_LANGUAGES, MORE_LANGUAGES } from "@/lib/languages";
 import { AdSlot } from "@/components/AdSlot";
 import { Link } from "wouter";
@@ -151,7 +152,7 @@ export default function Browse() {
                 transition={{ delay: i * 0.03 }}
                 data-testid={`card-manga-${m.id}`}
               >
-                <Link href={`/manga/${m.id}`} className="group block">
+                <Link href={mangaHref(m as never)} className="group block">
                   <div className="relative aspect-[3/4] rounded-lg overflow-hidden mb-2 border border-white/5">
                     <img
                       src={m.coverImage}
@@ -166,8 +167,8 @@ export default function Browse() {
                     </div>
                     <div className="absolute bottom-2 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="flex items-center gap-3 text-xs text-white/80">
-                        <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{(m.views / 1000).toFixed(0)}k</span>
-                        <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{(m.likes / 1000).toFixed(0)}k</span>
+                        <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatCount(m.views)}</span>
+                        <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{formatCount(m.likes)}</span>
                         <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" />{m.chapterCount}</span>
                       </div>
                     </div>

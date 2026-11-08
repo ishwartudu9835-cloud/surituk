@@ -9,6 +9,7 @@ function formatCreator(c: typeof creatorsTable.$inferSelect) {
   return {
     id: c.id,
     name: c.name,
+    slug: c.slug ?? null,
     studioName: c.studioName ?? null,
     avatar: c.avatar,
     banner: c.banner ?? null,
@@ -55,6 +56,14 @@ router.get("/creators/spotlight", async (req, res): Promise<void> => {
     .limit(1);
   if (!row) { res.status(404).json({ error: "No creator found" }); return; }
   res.json(formatCreator(row));
+});
+
+/** Resolve a readable creator URL to its id. */
+router.get("/creator-slug/:slug", async (req, res): Promise<void> => {
+  const slug = String(req.params.slug ?? "").normalize("NFC").toLowerCase();
+  const [row] = await db.select({ id: creatorsTable.id }).from(creatorsTable).where(eq(creatorsTable.slug, slug));
+  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ id: row.id });
 });
 
 router.get("/creators/:creatorId", async (req, res): Promise<void> => {

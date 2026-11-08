@@ -1,3 +1,4 @@
+import { assignCreatorSlug } from "./slug";
 import crypto from "node:crypto";
 import { eq, and } from "drizzle-orm";
 import {
@@ -106,6 +107,7 @@ export async function approveApplication(app: CreatorApplication, adminUserId: n
     await db.update(creatorsTable).set({ ...values, referralCode: c?.referralCode ?? await uniqueReferralCode(name) }).where(eq(creatorsTable.id, creatorId));
   } else {
     const [c] = await db.insert(creatorsTable).values({ ...values, referralCode: await uniqueReferralCode(name) }).returning();
+    c.slug = await assignCreatorSlug(c.id, c.name);
     creatorId = c.id;
   }
   await db.update(usersTable).set({ creatorId, role: user.role === "admin" ? "admin" : "creator" }).where(eq(usersTable.id, user.id));

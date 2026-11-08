@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { mangaHref, creatorHref } from "@/lib/links";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Eye, Users, Sparkles, CalendarDays, Calendar, Building2, CheckCircle, BadgeCheck } from "lucide-react";
@@ -39,7 +40,7 @@ export default function Leaderboard() {
       <div className="space-y-2">
         {isLoading && Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
         {data?.map(r => r.kind === "studio" ? (
-          <Link key={`s${r.id}`} href={`/creator/${r.id}`} className="flex items-center gap-4 p-3 rounded-xl border border-border bg-card/40 hover:border-primary/50 transition-colors">
+          <Link key={`s${r.id}`} href={creatorHref(r as never)} className="flex items-center gap-4 p-3 rounded-xl border border-border bg-card/40 hover:border-primary/50 transition-colors">
             <span className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${medal(r.rank)}`}>{r.rank}</span>
             <img src={r.avatar} alt="" className="w-14 h-14 rounded-xl object-cover" />
             <div className="flex-1 min-w-0">
@@ -52,7 +53,7 @@ export default function Leaderboard() {
             </div>
           </Link>
         ) : (
-          <Link key={`m${r.id}`} href={`/manga/${r.id}`} className="flex items-center gap-4 p-3 rounded-xl border border-border bg-card/40 hover:border-primary/50 transition-colors">
+          <Link key={`m${r.id}`} href={mangaHref(r as never)} className="flex items-center gap-4 p-3 rounded-xl border border-border bg-card/40 hover:border-primary/50 transition-colors">
             <span className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${medal(r.rank)}`}>{r.rank}</span>
             <img src={r.coverImage} alt="" className="w-12 h-16 rounded-md object-cover" />
             <div className="flex-1 min-w-0">

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { mangaHref } from "@/lib/links";
 import { POPULAR_LANGUAGES, MORE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
 import { IMAGE_ACCEPT, isImageFile } from "@/lib/image";
 import { Link } from "wouter";
@@ -205,7 +206,7 @@ export function ManageSeries({ seriesId, onBack }: { seriesId: number; onBack: (
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-1" /> All series</Button>
         <h1 className="text-3xl font-bold flex-1 min-w-0 truncate">{s?.title}</h1>
-        <Button asChild variant="outline" size="sm"><Link href={`/manga/${seriesId}`}><ExternalLink className="w-4 h-4 mr-1.5" /> View page</Link></Button>
+        <Button asChild variant="outline" size="sm"><Link href={mangaHref({ id: seriesId, slug: (s as { slug?: string | null } | undefined)?.slug })}><ExternalLink className="w-4 h-4 mr-1.5" /> View page</Link></Button>
       </div>
 
       <div className={`p-5 rounded-xl border flex flex-col sm:flex-row sm:items-center gap-3 ${s?.isPublished ? "border-green-500/30 bg-green-500/5" : "border-border bg-card/40"}`}>

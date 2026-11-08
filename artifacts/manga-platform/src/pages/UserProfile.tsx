@@ -1,4 +1,7 @@
 import { useParams, Link, Redirect } from "wouter";
+import { mangaHref, userHref } from "@/lib/links";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { useGetUser, useGetUserReadingHistory, useGetUserBookmarks, useGetUserRewards, useGetUserNotifications, getGetUserQueryKey, getGetUserReadingHistoryQueryKey, getGetUserBookmarksQueryKey, getGetUserRewardsQueryKey, getGetUserNotificationsQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -19,21 +22,31 @@ function timeAgo(dateStr: string) {
 }
 
 export default function UserProfile() {
-  const { userId } = useParams<{ userId?: string }>();
+  const { userId, username } = useParams<{ userId?: string; username?: string }>();
   const { me, loading: authLoading } = useAuth();
-  // Your own profile lives at /profile (no number in the URL). Profiles are private.
-  const id = userId ? parseInt(userId, 10) : (me?.id ?? 0);
+  const wanted = username ? decodeURIComponent(username).toLowerCase() : "";
+  // Your own profile shows everything; anyone else's shows only the public card (name, picture, bio, points).
+  const isOwn = !!me && (wanted ? me.username?.toLowerCase() === wanted : !userId || me.id === parseInt(userId, 10));
+  const id = isOwn ? me!.id : 0;
   const tabParam = new URLSearchParams(window.location.search).get("tab");
 
-  const { data: user, isLoading } = useGetUser(id, { query: { enabled: !!id, queryKey: getGetUserQueryKey(id) } });
-  const { data: history } = useGetUserReadingHistory(id, { query: { enabled: !!id, queryKey: getGetUserReadingHistoryQueryKey(id) } });
-  const { data: bookmarks } = useGetUserBookmarks(id, { query: { enabled: !!id, queryKey: getGetUserBookmarksQueryKey(id) } });
-  const { data: rewards } = useGetUserRewards(id, { query: { enabled: !!id, queryKey: getGetUserRewardsQueryKey(id) } });
-  const isOwn = !!me && me.id === id;
-  const { data: notifications } = useGetUserNotifications(id, { query: { enabled: !!id && isOwn, queryKey: getGetUserNotificationsQueryKey(id) } });
+  const { data: ownUser, isLoading: ownLoading } = useGetUser(id, { query: { enabled: isOwn, queryKey: getGetUserQueryKey(id) } });
+  const { data: publicUser, isLoading: publicLoading } = useQuery({
+    queryKey: ["public-user", wanted],
+    queryFn: () => api<NonNullable<typeof ownUser>>(`/users/by-username/${encodeURIComponent(wanted)}`),
+    enabled: !!wanted && !isOwn && !authLoading,
+    retry: false,
+  });
+  const user = isOwn ? ownUser : publicUser;
+  const isLoading = isOwn ? ownLoading : (!!wanted && publicLoading);
+  const { data: history } = useGetUserReadingHistory(id, { query: { enabled: isOwn, queryKey: getGetUserReadingHistoryQueryKey(id) } });
+  const { data: bookmarks } = useGetUserBookmarks(id, { query: { enabled: isOwn, queryKey: getGetUserBookmarksQueryKey(id) } });
+  const { data: rewards } = useGetUserRewards(id, { query: { enabled: isOwn, queryKey: getGetUserRewardsQueryKey(id) } });
+  const { data: notifications } = useGetUserNotifications(id, { query: { enabled: isOwn, queryKey: getGetUserNotificationsQueryKey(id) } });
 
-  if (userId && me && me.id === id) return <Redirect to="/profile" replace />;
-  if (!userId && !authLoading && !me) return <Redirect to="/login?next=/profile" replace />;
+  // /profile and old /user/<number> links go to the name-based URL.
+  if (!authLoading && me && isOwn && !wanted && me.username) return <Redirect to={`${userHref(me.username)}${tabParam ? `?tab=${tabParam}` : ""}`} replace />;
+  if (!userId && !wanted && !authLoading && !me) return <Redirect to="/login?next=/profile" replace />;
 
   if (isLoading || authLoading) {
     return (
@@ -45,12 +58,7 @@ export default function UserProfile() {
     );
   }
 
-  if (!user) return (
-    <div className="container py-20 text-center text-muted-foreground space-y-2">
-      <p className="text-lg text-foreground">This profile is private</p>
-      <p className="text-sm">Reader profiles, history and bookmarks are only visible to their owner.</p>
-    </div>
-  );
+  if (!user) return <div className="container py-20 text-center text-muted-foreground">User not found</div>;
 
   const notifTypeColor: Record<string, string> = {
     new_chapter: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -110,6 +118,7 @@ export default function UserProfile() {
         </div>
       )}
 
+      {isOwn && (
       <Tabs defaultValue={tabParam === "notifications" && isOwn ? "notifications" : "history"}>
         <TabsList className={`border border-white/10 bg-card/30 mb-6 h-auto w-full sm:w-max grid grid-cols-2 sm:inline-flex gap-1`}>
           <TabsTrigger value="history" className="flex items-center gap-2" data-testid="tab-history"><BookOpen className="w-4 h-4" /> History</TabsTrigger>
@@ -123,7 +132,7 @@ export default function UserProfile() {
             {!history || history.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground border border-white/5 rounded-xl">No reading history yet</div>
             ) : history.map(entry => (
-              <Link key={entry.mangaId} href={`/manga/${entry.mangaId}`} className="flex items-center gap-4 p-4 rounded-xl border border-white/5 hover:border-white/15 transition-all bg-card/20 group" data-testid={`card-history-${entry.mangaId}`}>
+              <Link key={entry.mangaId} href={mangaHref({ id: entry.mangaId, mangaSlug: (entry as { mangaSlug?: string | null }).mangaSlug })} className="flex items-center gap-4 p-4 rounded-xl border border-white/5 hover:border-white/15 transition-all bg-card/20 group" data-testid={`card-history-${entry.mangaId}`}>
                 <img src={entry.coverImage} alt={entry.mangaTitle} className="w-12 h-16 rounded object-cover border border-white/10" />
                 <div className="flex-1">
                   <p className="font-medium group-hover:text-primary transition-colors">{entry.mangaTitle}</p>
@@ -144,7 +153,7 @@ export default function UserProfile() {
             {!bookmarks || bookmarks.length === 0 ? (
               <div className="col-span-full text-center py-12 text-muted-foreground border border-white/5 rounded-xl">No bookmarks yet</div>
             ) : bookmarks.map(m => (
-              <Link key={m.id} href={`/manga/${m.id}`} className="group" data-testid={`card-bookmark-${m.id}`}>
+              <Link key={m.id} href={mangaHref(m as never)} className="group" data-testid={`card-bookmark-${m.id}`}>
                 <div className="aspect-[3/4] rounded-lg overflow-hidden border border-white/5 mb-2">
                   <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                 </div>
@@ -200,6 +209,7 @@ export default function UserProfile() {
           </TabsContent>
         )}
       </Tabs>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { creatorsTable } from "./creators";
 export const mangaTable = pgTable("manga", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
+  slug: text("slug").unique(),
   description: text("description"),
   creatorId: integer("creator_id").notNull().references(() => creatorsTable.id),
   coverImage: text("cover_image").notNull(),

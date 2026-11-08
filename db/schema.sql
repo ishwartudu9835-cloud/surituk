@@ -231,7 +231,8 @@ CREATE TABLE public.creators (
     upi_id text,
     payout_name text,
     rank integer,
-    joined_at timestamp with time zone DEFAULT now() NOT NULL
+    joined_at timestamp with time zone DEFAULT now() NOT NULL,
+    slug text UNIQUE
 );
 
 CREATE SEQUENCE public.creators_id_seq
@@ -285,7 +286,8 @@ CREATE TABLE public.manga (
     weekly_rank integer,
     monthly_rank integer,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    slug text UNIQUE
 );
 
 CREATE SEQUENCE public.manga_id_seq

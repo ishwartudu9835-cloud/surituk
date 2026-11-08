@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { creatorHref } from "@/lib/links";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, X, HelpCircle, Copy, ExternalLink, Loader2, ShieldCheck, BadgeCheck, ChevronDown, ChevronUp } from "lucide-react";
@@ -142,7 +143,7 @@ function Creators() {
           </tr></thead>
           <tbody>{data?.map(c => (
             <tr key={c.id} className="border-t border-border">
-              <td className="p-3"><Link href={`/creator/${c.id}`} className="flex items-center gap-2 hover:text-primary"><img src={c.avatar} alt="" className="w-8 h-8 rounded-full object-cover" /><span>{c.name}<span className="block text-xs text-muted-foreground capitalize">{c.type}{c.city ? ` · ${c.city}` : ""}</span></span></Link></td>
+              <td className="p-3"><Link href={creatorHref(c as never)} className="flex items-center gap-2 hover:text-primary"><img src={c.avatar} alt="" className="w-8 h-8 rounded-full object-cover" /><span>{c.name}<span className="block text-xs text-muted-foreground capitalize">{c.type}{c.city ? ` · ${c.city}` : ""}</span></span></Link></td>
               <td className="p-3 text-xs">{c.ownerEmail ?? "—"}</td>
               <td className="p-3 text-right">{c.totalManga}</td>
               <td className="p-3 text-right">{c.totalViews.toLocaleString()}</td>

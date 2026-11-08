@@ -1,4 +1,5 @@
 import React from "react";
+import { mangaHref, creatorHref, creatorHrefFromManga, formatCount } from "@/lib/links";
 import { AdSlot } from "@/components/AdSlot";
 import { ReaderRows } from "@/components/ReaderRows";
 import { Link } from "wouter";
@@ -73,10 +74,10 @@ export default function Home() {
                 </div>
                 <div className="flex gap-3">
                   <Button asChild size="lg" className="h-10 sm:h-12 px-5 sm:px-8 bg-primary hover:bg-primary/90 text-white font-semibold text-sm sm:text-base">
-                    <Link href={`/manga/${heroManga.id}`}>Read Now</Link>
+                    <Link href={mangaHref(heroManga as never)}>Read Now</Link>
                   </Button>
                   <Button asChild size="lg" variant="outline" className="h-10 sm:h-12 px-5 sm:px-8 border-white/20 hover:bg-white/10 text-sm sm:text-base">
-                    <Link href={`/creator/${heroManga.creatorId}`}>View Creator</Link>
+                    <Link href={creatorHrefFromManga(heroManga as never)}>View Creator</Link>
                   </Button>
                 </div>
               </motion.div>
@@ -153,7 +154,7 @@ export default function Home() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {newReleases ? newReleases.map(manga => (
-                  <Link key={manga.id} href={`/manga/${manga.id}`} className="group block">
+                  <Link key={manga.id} href={mangaHref(manga as never)} className="group block">
                     <div className="aspect-[3/4] rounded-lg overflow-hidden mb-3 bg-secondary">
                       <img src={manga.coverImage} alt={manga.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                     </div>
@@ -175,21 +176,21 @@ export default function Home() {
                 <Button variant="ghost" asChild><Link href="/browse?sort=trending">View All</Link></Button>
               </div>
               <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
-                {trending ? trending.map(manga => (
-                  <Link key={manga.id} href={`/manga/${manga.id}`} className="group block min-w-[160px] snap-start">
+                {trending ? trending.map((manga, i) => (
+                  <Link key={manga.id} href={mangaHref(manga as never)} className="group block w-[140px] sm:w-[160px] shrink-0 snap-start">
                     <div className="aspect-[3/4] rounded-lg overflow-hidden mb-3 bg-secondary relative">
                       <div className="absolute top-2 left-2 px-2 py-1 rounded bg-black/60 backdrop-blur-md text-[10px] font-bold text-white z-10 border border-border">
-                        #{manga.weeklyRank}
+                        #{manga.weeklyRank || i + 1}
                       </div>
                       <img src={manga.coverImage} alt={manga.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                     </div>
                     <h3 className="font-semibold text-sm line-clamp-1 group-hover:text-primary transition-colors">{manga.title}</h3>
                     <div className="flex items-center text-xs text-muted-foreground mt-1">
-                      <Flame className="w-3 h-3 mr-1 text-accent" /> {(manga.views / 1000).toFixed(1)}k
+                      <Flame className="w-3 h-3 mr-1 text-accent" /> {formatCount(manga.views)} views
                     </div>
                   </Link>
                 )) : (
-                  Array(5).fill(0).map((_, i) => <Skeleton key={i} className="min-w-[160px] aspect-[3/4] rounded-lg" />)
+                  Array(5).fill(0).map((_, i) => <Skeleton key={i} className="w-[140px] sm:w-[160px] shrink-0 aspect-[3/4] rounded-lg" />)
                 )}
               </div>
             </div>
@@ -215,7 +216,7 @@ export default function Home() {
                   <h3 className="font-bold text-xl mb-1">{spotlight.name}</h3>
                   <p className="text-sm text-muted-foreground mb-4">{spotlight.followers.toLocaleString()} followers</p>
                   <Button asChild size="sm" className="w-full rounded-full bg-primary hover:bg-primary/90 text-white">
-                    <Link href={`/creator/${spotlight.id}`}>Visit page</Link>
+                    <Link href={creatorHref(spotlight as never)}>Visit page</Link>
                   </Button>
                 </div>
               </div>

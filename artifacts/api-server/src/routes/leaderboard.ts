@@ -16,9 +16,11 @@ router.get("/leaderboard/manga", async (req, res): Promise<void> => {
     .select({
       mangaId: mangaTable.id,
       title: mangaTable.title,
+      slug: mangaTable.slug,
       coverImage: mangaTable.coverImage,
       creatorId: mangaTable.creatorId,
       creatorName: creatorsTable.name,
+      creatorSlug: creatorsTable.slug,
       views: mangaTable.views,
       likes: mangaTable.likes,
       weeklyRank: mangaTable.weeklyRank,

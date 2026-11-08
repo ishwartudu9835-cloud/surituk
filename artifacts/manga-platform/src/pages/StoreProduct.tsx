@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { creatorHref } from "@/lib/links";
 import { Link, useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Package, Truck, ShieldCheck, Loader2, Download, Check } from "lucide-react";
@@ -62,7 +63,7 @@ export default function StoreProduct() {
             {p.pageCount && <span className="px-2.5 py-1 rounded-md bg-secondary text-xs">{p.pageCount} pages</span>}
           </div>
           <h1 className="text-4xl md:text-5xl font-bold leading-tight">{p.title}</h1>
-          <Link href={`/creator/${p.creatorId}`} className="inline-flex items-center gap-2 mt-3 text-primary hover:underline">
+          <Link href={creatorHref({ id: p.creatorId })} className="inline-flex items-center gap-2 mt-3 text-primary hover:underline">
             {p.creatorAvatar && <img src={p.creatorAvatar} alt="" className="w-6 h-6 rounded-full object-cover" />} by {p.creatorName}
           </Link>
           {p.description && <p className="text-muted-foreground mt-5 leading-relaxed whitespace-pre-line max-w-2xl">{p.description}</p>}

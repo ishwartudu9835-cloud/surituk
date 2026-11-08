@@ -13,6 +13,7 @@ const router: IRouter = Router();
 const cardFields = {
   id: mangaTable.id,
   title: mangaTable.title,
+  slug: mangaTable.slug,
   coverImage: mangaTable.coverImage,
   genre: mangaTable.genre,
   chapterCount: mangaTable.chapterCount,
@@ -22,6 +23,7 @@ const cardFields = {
   isMature: mangaTable.isMature,
   creatorId: mangaTable.creatorId,
   creatorName: creatorsTable.name,
+  creatorSlug: creatorsTable.slug,
   creatorType: creatorsTable.type,
 };
 

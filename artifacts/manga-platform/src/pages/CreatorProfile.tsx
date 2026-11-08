@@ -1,4 +1,5 @@
 import { useParams, Link } from "wouter";
+import { useResolvedId, useCanonicalPath, mangaHref } from "@/lib/links";
 import { useQuery } from "@tanstack/react-query";
 import { useGetCreator, useGetCreatorAnalytics, useListManga, getGetCreatorQueryKey, getGetCreatorAnalyticsQueryKey, getListMangaQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,7 +15,7 @@ const RED = "hsl(358 80% 52%)";
 
 export default function CreatorProfile() {
   const { creatorId } = useParams<{ creatorId: string }>();
-  const id = parseInt(creatorId, 10);
+  const { id, notFound, loading: resolving } = useResolvedId("creator", creatorId);
 
   const { data: creator, isLoading } = useGetCreator(id, { query: { enabled: !!id, queryKey: getGetCreatorQueryKey(id) } });
   const { data: analytics } = useGetCreatorAnalytics(id, { query: { enabled: !!id, queryKey: getGetCreatorAnalyticsQueryKey(id) } });
@@ -23,10 +24,11 @@ export default function CreatorProfile() {
   const creatorManga = manga?.filter(m => m.creatorId === id) ?? [];
   const { data: team } = useQuery({ queryKey: ["team-public", id], queryFn: () => api<{ name: string; role: string; avatar: string | null }[]>(`/creators/${id}/team`), enabled: !!id });
   const extra = creator as unknown as { type?: string; city?: string | null; state?: string | null; isRegisteredStudio?: boolean; socialLinks?: { youtube?: string | null } } | undefined;
+  useCanonicalPath(creatorId, (creator as { slug?: string | null } | undefined)?.slug, k => `/creator/${k}`);
   const isStudio = extra?.type === "studio";
   const location = [extra?.city, extra?.state].filter(Boolean).join(", ");
 
-  if (isLoading) {
+  if (isLoading || resolving) {
     return (
       <div className="container px-4 py-8 space-y-8">
         <Skeleton className="h-48 w-full rounded-xl" />
@@ -35,7 +37,7 @@ export default function CreatorProfile() {
     );
   }
 
-  if (!creator) return <div className="container py-20 text-center text-muted-foreground">Creator not found</div>;
+  if (!creator || notFound) return <div className="container py-20 text-center text-muted-foreground">Creator not found</div>;
 
   return (
     <div>
@@ -105,7 +107,7 @@ export default function CreatorProfile() {
         {creatorManga.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-12">
             {creatorManga.map(m => (
-              <Link key={m.id} href={`/manga/${m.id}`} className="group">
+              <Link key={m.id} href={mangaHref(m as never)} className="group">
                 <div className="aspect-[3/4] rounded-lg overflow-hidden border border-border mb-2">
                   <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 </div>

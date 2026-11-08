@@ -1,3 +1,4 @@
+import { assignCreatorSlug } from "../lib/slug";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gt, gte, isNotNull, sql } from "drizzle-orm";
 import {
@@ -123,6 +124,7 @@ router.post("/pro/apply", requireAuth, async (req, res): Promise<void> => {
       name: v.type === "studio" ? v.studioName! : v.penName, type: v.type, status: "pending",
       avatar: (v.type === "studio" && v.studioLogo) || u.avatar, city: v.city, state: v.state, ownerUserId: u.id,
     }).returning();
+    c.slug = await assignCreatorSlug(c.id, c.name);
     creatorId = c.id;
     await db.update(usersTable).set({ creatorId }).where(eq(usersTable.id, u.id));
   }

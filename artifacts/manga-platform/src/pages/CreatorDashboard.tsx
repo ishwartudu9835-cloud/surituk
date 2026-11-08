@@ -1,4 +1,5 @@
 import { isImageFile } from "@/lib/image";
+import { mangaHref, creatorHref } from "@/lib/links";
 import { POPULAR_LANGUAGES, MORE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
 import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
@@ -537,7 +538,7 @@ function CreatorSettings() {
         {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.t}</p>}
         <div className="flex gap-3">
           <Button type="submit" className="flex-1">Save</Button>
-          {c && c.status === "approved" && <Button asChild variant="outline"><Link href={`/creator/${c.id}`}>View public page</Link></Button>}
+          {c && c.status === "approved" && <Button asChild variant="outline"><Link href={creatorHref(c as never)}>View public page</Link></Button>}
         </div>
       </form>
       <p className="text-xs text-muted-foreground mt-4">Payment details (UPI) are asked only when your earnings reach the minimum payout.</p>
@@ -695,7 +696,7 @@ export default function CreatorDashboard() {
                 <h2 className="text-base font-semibold mb-4">Top series</h2>
                 <div className="space-y-3">{analytics!.topManga!.map(m => (
                   <div key={m.id} className="flex items-center gap-3">
-                    <Link href={`/manga/${m.id}`} className="flex-1 text-sm hover:text-primary">{m.title}</Link>
+                    <Link href={mangaHref(m as never)} className="flex-1 text-sm hover:text-primary">{m.title}</Link>
                     <span className="text-sm text-muted-foreground">{m.views.toLocaleString()} views</span><ChevronRight className="w-4 h-4 text-muted-foreground" />
                   </div>
                 ))}</div>

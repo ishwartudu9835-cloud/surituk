@@ -1,4 +1,5 @@
 import { useParams } from "wouter";
+import { mangaHref, formatCount } from "@/lib/links";
 import { useListManga, useListGenres } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,7 +59,7 @@ export default function GenrePage() {
                 transition={{ delay: i * 0.03 }}
                 data-testid={`card-genre-manga-${m.id}`}
               >
-                <Link href={`/manga/${m.id}`} className="group block">
+                <Link href={mangaHref(m as never)} className="group block">
                   <div className="relative aspect-[3/4] rounded-lg overflow-hidden mb-2 border border-white/5">
                     <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                     <div className="absolute top-2 left-2">
@@ -66,7 +67,7 @@ export default function GenrePage() {
                     </div>
                     <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="flex items-center gap-2 text-xs text-white/80">
-                        <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{(m.views/1000).toFixed(0)}k</span>
+                        <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{formatCount(m.views)}</span>
                         <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" />{m.chapterCount}</span>
                       </div>
                     </div>

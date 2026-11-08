@@ -1,3 +1,4 @@
+import { assignMangaSlug } from "../lib/slug";
 import { Router, type IRouter } from "express";
 import { requireCreator, isApprovedCreator } from "../lib/auth";
 import { notifySubscribers } from "../lib/notify";
@@ -6,6 +7,14 @@ import { visibleManga, canManage } from "../lib/visibility";
 import { db, mangaTable, creatorsTable, genresTable } from "@workspace/db";
 
 const router: IRouter = Router();
+
+/** Resolve a readable series URL ("/manga/supar-man-bana-lazy-man") to its id. */
+router.get("/manga-slug/:slug", async (req, res): Promise<void> => {
+  const slug = String(req.params.slug ?? "").normalize("NFC").toLowerCase();
+  const [row] = await db.select({ id: mangaTable.id }).from(mangaTable).where(eq(mangaTable.slug, slug));
+  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+  res.json({ id: row.id });
+});
 
 router.get("/manga", async (req, res): Promise<void> => {
   const { genre, language, sort, search, limit = "20", offset = "0" } = req.query as Record<string, string>;
@@ -25,9 +34,11 @@ router.get("/manga", async (req, res): Promise<void> => {
     .select({
       id: mangaTable.id,
       title: mangaTable.title,
+      slug: mangaTable.slug,
       description: mangaTable.description,
       creatorId: mangaTable.creatorId,
       creatorName: creatorsTable.name,
+      creatorSlug: creatorsTable.slug,
       creatorAvatar: creatorsTable.avatar,
       coverImage: mangaTable.coverImage,
       bannerImage: mangaTable.bannerImage,
@@ -83,6 +94,7 @@ router.post("/manga", requireCreator, async (req, res): Promise<void> => {
     isPublished: publish,
     isMature,
   }).returning();
+  m.slug = await assignMangaSlug(m.id, m.title);
   if (publish) {
     await db.update(creatorsTable).set({ totalManga: sql`${creatorsTable.totalManga} + 1` }).where(eq(creatorsTable.id, m.creatorId));
     await db.update(genresTable).set({ mangaCount: sql`${genresTable.mangaCount} + 1` }).where(eq(genresTable.name, genre));
@@ -105,9 +117,11 @@ router.get("/manga/trending", async (req, res): Promise<void> => {
     .select({
       id: mangaTable.id,
       title: mangaTable.title,
+      slug: mangaTable.slug,
       description: mangaTable.description,
       creatorId: mangaTable.creatorId,
       creatorName: creatorsTable.name,
+      creatorSlug: creatorsTable.slug,
       creatorAvatar: creatorsTable.avatar,
       coverImage: mangaTable.coverImage,
       bannerImage: mangaTable.bannerImage,
@@ -145,9 +159,11 @@ router.get("/manga/featured", async (req, res): Promise<void> => {
     .select({
       id: mangaTable.id,
       title: mangaTable.title,
+      slug: mangaTable.slug,
       description: mangaTable.description,
       creatorId: mangaTable.creatorId,
       creatorName: creatorsTable.name,
+      creatorSlug: creatorsTable.slug,
       creatorAvatar: creatorsTable.avatar,
       coverImage: mangaTable.coverImage,
       bannerImage: mangaTable.bannerImage,
@@ -186,9 +202,11 @@ router.get("/manga/new-releases", async (req, res): Promise<void> => {
     .select({
       id: mangaTable.id,
       title: mangaTable.title,
+      slug: mangaTable.slug,
       description: mangaTable.description,
       creatorId: mangaTable.creatorId,
       creatorName: creatorsTable.name,
+      creatorSlug: creatorsTable.slug,
       creatorAvatar: creatorsTable.avatar,
       coverImage: mangaTable.coverImage,
       bannerImage: mangaTable.bannerImage,
@@ -226,9 +244,11 @@ router.get("/manga/top-monthly", async (req, res): Promise<void> => {
     .select({
       id: mangaTable.id,
       title: mangaTable.title,
+      slug: mangaTable.slug,
       description: mangaTable.description,
       creatorId: mangaTable.creatorId,
       creatorName: creatorsTable.name,
+      creatorSlug: creatorsTable.slug,
       creatorAvatar: creatorsTable.avatar,
       coverImage: mangaTable.coverImage,
       bannerImage: mangaTable.bannerImage,
@@ -270,9 +290,11 @@ router.get("/manga/:mangaId", async (req, res): Promise<void> => {
     .select({
       id: mangaTable.id,
       title: mangaTable.title,
+      slug: mangaTable.slug,
       description: mangaTable.description,
       creatorId: mangaTable.creatorId,
       creatorName: creatorsTable.name,
+      creatorSlug: creatorsTable.slug,
       creatorAvatar: creatorsTable.avatar,
       coverImage: mangaTable.coverImage,
       bannerImage: mangaTable.bannerImage,

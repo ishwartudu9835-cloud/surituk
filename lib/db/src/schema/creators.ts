@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const creatorsTable = pgTable("creators", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  slug: text("slug").unique(),
   studioName: text("studio_name"),
   avatar: text("avatar").notNull(),
   banner: text("banner"),

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { mangaHref, creatorHref } from "@/lib/links";
 import { Link } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Loader2, X, BookOpen, CheckCircle2 } from "lucide-react";
@@ -58,9 +59,9 @@ export default function Library() {
       <div className="space-y-3 mb-14">
         {history?.map(h => (
           <div key={h.id} className="flex items-center gap-4 p-3 rounded-xl border border-border bg-card/40">
-            <Link href={`/manga/${h.id}`}><img src={h.coverImage} alt="" className="w-14 h-20 object-cover rounded-md" /></Link>
+            <Link href={mangaHref(h as never)}><img src={h.coverImage} alt="" className="w-14 h-20 object-cover rounded-md" /></Link>
             <div className="flex-1 min-w-0">
-              <Link href={`/manga/${h.id}`} className="font-semibold hover:text-primary line-clamp-1">{h.title}</Link>
+              <Link href={mangaHref(h as never)} className="font-semibold hover:text-primary line-clamp-1">{h.title}</Link>
               <p className="text-xs text-muted-foreground">{h.creatorName} · Chapter {h.lastChapter}, page {h.lastPage + 1} · {new Date(h.lastReadAt).toLocaleDateString("en-IN")}</p>
               <div className="flex items-center gap-2 mt-2 max-w-sm">
                 <div className="h-1.5 flex-1 rounded-full bg-secondary overflow-hidden"><div className="h-full bg-primary" style={{ width: `${Math.min(100, h.progress)}%` }} /></div>
@@ -79,7 +80,7 @@ export default function Library() {
       <h2 className="text-2xl font-bold mb-5 brush-underline">Subscribed creators</h2>
       <div className="flex flex-wrap gap-4 mb-14">
         {subs?.map(c => (
-          <Link key={c.id} href={`/creator/${c.id}`} className="flex items-center gap-3 p-3 pr-5 rounded-full border border-border bg-card/50 hover:border-primary/50 transition-colors">
+          <Link key={c.id} href={creatorHref(c as never)} className="flex items-center gap-3 p-3 pr-5 rounded-full border border-border bg-card/50 hover:border-primary/50 transition-colors">
             <img src={c.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
             <div><p className="text-sm font-semibold">{c.name}</p><p className="text-xs text-muted-foreground">{c.totalManga} series</p></div>
           </Link>
