@@ -23,6 +23,9 @@ export const usersTable = pgTable("users", {
   onboarded: boolean("onboarded").notNull().default(false),
   /** Blocked by an admin from posting, replying, liking, voting and rating. */
   blocked: boolean("blocked").notNull().default(false),
+  /** Banned by an admin: can't log in at all. */
+  banned: boolean("banned").notNull().default(false),
+  banReason: text("ban_reason"),
   referredBy: integer("referred_by"), // creator id whose referral link brought this user
   lastIp: text("last_ip"),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),

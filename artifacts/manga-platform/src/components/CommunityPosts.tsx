@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { ReportButton } from "@/components/ReportButton";
 import { useId, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { api, uploadFiles } from "@/lib/api";
@@ -25,7 +26,7 @@ export type Post = {
   creatorId: number | null; creatorSlug: string | null; creatorVerified: boolean;
   rules: Rules; likes: number; likedByMe: boolean; replies: number;
   poll: Poll | null; story: Story | null;
-  canDelete: boolean; tags: string[]; createdAt: string;
+  canDelete: boolean; hidden?: boolean; tags: string[]; createdAt: string;
 };
 type ReplyItem = { id: number; content: string; authorId: number; authorName: string; authorAvatar: string; authorUsername: string | null; canDelete: boolean; canBlock: boolean; createdAt: string };
 
@@ -277,6 +278,7 @@ function Comments({ post, onCount }: { post: Post; onCount: (delta: number) => v
                 : <span className="font-medium text-foreground">{r.authorName}</span>}
               <span className="text-muted-foreground">{timeAgo(r.createdAt)}</span>
               <span className="ml-auto flex items-center gap-2">
+                {me && me.id !== r.authorId && <ReportButton targetType="comment" targetId={r.id} iconOnly label="Report comment" />}
                 {r.canBlock && <button onClick={() => { if (confirm(`Block ${r.authorName} from the community?`)) block.mutate(r.authorId); }} className="text-muted-foreground hover:text-red-400" aria-label="Block user" title="Block user"><Ban className="w-3.5 h-3.5" /></button>}
                 {r.canDelete && <button onClick={() => { if (confirm("Delete this comment?")) remove.mutate(r.id); }} className="text-muted-foreground hover:text-red-400" aria-label="Delete comment"><Trash2 className="w-3.5 h-3.5" /></button>}
               </span>
@@ -344,8 +346,10 @@ export function PostCard({ post: initial, index }: { post: Post; index: number }
               : <span className="font-semibold text-sm">{post.authorName}</span>}
             <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border ${cfg.color}`}>{cfg.icon} {cfg.label}</span>
             <span className="text-muted-foreground text-xs flex items-center gap-1"><Clock className="w-3 h-3" />{timeAgo(post.createdAt)}</span>
+            {post.hidden && <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-500/15 text-red-300 border border-red-500/30">Unlisted</span>}
+            {me && me.id !== post.authorId && <ReportButton targetType="post" targetId={post.id} iconOnly label="Report post" className="ml-auto" />}
             {post.canDelete && (
-              <button onClick={() => { if (confirm("Delete this post?")) remove.mutate(); }} className="ml-auto text-muted-foreground hover:text-red-400" aria-label="Delete post" data-testid={`button-delete-post-${post.id}`}><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => { if (confirm("Delete this post?")) remove.mutate(); }} className="text-muted-foreground hover:text-red-400" aria-label="Delete post" data-testid={`button-delete-post-${post.id}`}><Trash2 className="w-4 h-4" /></button>
             )}
           </div>
           <h3 className="font-semibold text-[15px] sm:text-base mb-1 break-words">{post.title}</h3>

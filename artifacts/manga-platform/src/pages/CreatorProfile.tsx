@@ -1,4 +1,5 @@
 import { useParams, Link } from "wouter";
+import { ReportButton } from "@/components/ReportButton";
 import { useResolvedId, useCanonicalPath, mangaHref } from "@/lib/links";
 import { PostFeed, NewPostButton } from "@/components/CommunityPosts";
 import { useAuth } from "@/lib/auth";
@@ -58,6 +59,7 @@ export default function CreatorProfile() {
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h1 className="text-3xl md:text-4xl font-bold">{creator.name}</h1>
+              {!isOwner && <ReportButton targetType="creator" targetId={creator.id} label="Report" className="mt-1" />}
               {creator.isVerified && <span title="Verified creator"><CheckCircle className="w-5 h-5 text-primary" /></span>}
               {isStudio && <span className="text-xs px-2 py-0.5 rounded-full bg-secondary flex items-center gap-1"><Building2 className="w-3 h-3" /> Studio</span>}
               {extra?.isRegisteredStudio && <span className="text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent flex items-center gap-1"><BadgeCheck className="w-3 h-3" /> Registered Studio</span>}

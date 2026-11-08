@@ -104,7 +104,7 @@ router.get("/admin/creators", requireAdmin, async (req, res): Promise<void> => {
   res.json(rows.map(({ c, ownerEmail }) => ({
     id: c.id, name: c.name, type: c.type, status: c.status, avatar: c.avatar, city: c.city, state: c.state,
     isVerified: c.isVerified, isRegisteredStudio: c.isRegisteredStudio, totalManga: c.totalManga, totalViews: c.totalViews,
-    followers: c.followers, ownerEmail, joinedAt: c.joinedAt.toISOString(),
+    followers: c.followers, ownerEmail, ownerUserId: c.ownerUserId, strikes: c.strikes, slug: c.slug, joinedAt: c.joinedAt.toISOString(),
   })));
 });
 

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, smallint, timestamp, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, smallint, timestamp, primaryKey, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -19,6 +19,8 @@ export const communityPostsTable = pgTable("community_posts", {
   creatorId: integer("creator_id"),
   /** Poll posts: 2–4 choices. */
   pollOptions: text("poll_options").array().notNull().default([]),
+  /** Unlisted by an admin. */
+  hidden: boolean("hidden").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

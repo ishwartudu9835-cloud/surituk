@@ -51,7 +51,7 @@ export default function Login() {
 
   const { data: cfg } = useQuery({ queryKey: ["auth-config"], queryFn: () => api<{ googleClientId: string | null }>("/auth/config") });
 
-  useEffect(() => { if (me) navigate(nextPath()); }, [me, navigate]);
+  useEffect(() => { if (me) navigate(me.role === "admin" && nextPath() === "/" ? "/admin" : nextPath()); }, [me, navigate]);
 
   useEffect(() => {
     if (cooldown <= 0) return;

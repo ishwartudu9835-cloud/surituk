@@ -1,15 +1,24 @@
 import { useState } from "react";
 import { creatorHref } from "@/lib/links";
-import { Link } from "wouter";
+import { Link, Redirect, useParams } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, X, HelpCircle, Copy, ExternalLink, Loader2, ShieldCheck, BadgeCheck, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Check, X, HelpCircle, Copy, ExternalLink, Loader2, ShieldCheck, BadgeCheck, ChevronDown, ChevronUp, Megaphone, AlertOctagon, Undo2, PauseCircle, Ban,
+  User as UserIcon, LayoutDashboard, Flag, Users as UsersIcon, PenTool, FileCheck2, BookOpen, MessagesSquare, Settings as SettingsIcon, ScrollText, Menu, LogOut,
+} from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { card as cardBase, Filters, Empty, Pill, useConfirm, Act } from "@/components/admin/shared";
+import { Dashboard, type DashboardData } from "@/components/admin/Dashboard";
+import { Reports } from "@/components/admin/Reports";
+import { Users } from "@/components/admin/Users";
+import { Stories, CommunityAdmin } from "@/components/admin/Content";
+import { Notices, SiteSettings } from "@/components/admin/NoticesSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-type Overview = { users: number; creators: number; studios: number; pendingApplications: number; series: number; drafts: number; newCreatorMode: "manual" | "auto" };
 type App = {
   id: number; userId: number; type: string; status: string; legalName: string; penName: string; email: string; mobile: string; mobileMasked: string;
   city: string; state: string; portfolioUrl: string | null; sampleImages: string[]; socialLinks: Record<string, string>;
@@ -17,12 +26,11 @@ type App = {
   website: string | null; udyamNumber: string | null; gstNumber: string | null; teamMembers: { name: string; email: string; role: string }[];
   reviewNote: string | null; accountEmail: string | null; accountJoinedAt: string | null; daysWaiting: number; createdAt: string; inviteToken: string | null;
 };
-type Creator = { id: number; name: string; type: string; status: string; avatar: string; city: string | null; state: string | null; isVerified: boolean; isRegisteredStudio: boolean; totalManga: number; totalViews: number; followers: number; ownerEmail: string | null; joinedAt: string };
+type Creator = { id: number; name: string; slug: string | null; type: string; status: string; avatar: string; city: string | null; state: string | null; isVerified: boolean; isRegisteredStudio: boolean; totalManga: number; totalViews: number; followers: number; ownerEmail: string | null; ownerUserId: number | null; strikes: number; joinedAt: string };
 type Invite = { token: string; url: string; note: string | null; usesLeft: number; expiresAt: string | null; createdAt: string };
 type Log = { id: number; admin: string | null; action: string; targetType: string | null; targetId: number | null; details: unknown; createdAt: string };
 
-const card = "rounded-xl border border-border bg-card/40 p-5";
-const TABS = [["applications", "Applications"], ["creators", "Creators"], ["add", "Add & Invite"], ["audit", "Audit log"]] as const;
+const card = `${cardBase} p-5`;
 
 function CopyBtn({ text }: { text: string }) {
   const [ok, setOk] = useState(false);
@@ -122,47 +130,51 @@ function Applications() {
 
 function Creators() {
   const qc = useQueryClient();
-  const [status, setStatus] = useState("all");
+  const { ask, node } = useConfirm();
+  const [status, setStatus] = useState<"all" | "approved" | "pending" | "suspended" | "banned">("all");
+  const [view, setView] = useState<"list" | "add">("list");
   const { data } = useQuery({ queryKey: ["admin-creators", status], queryFn: () => api<Creator[]>(`/admin/creators?status=${status}`) });
+  const refresh = () => { qc.invalidateQueries({ queryKey: ["admin-creators"] }); qc.invalidateQueries({ queryKey: ["admin-dashboard"] }); };
   async function patch(id: number, body: Record<string, unknown>) {
-    if (body.status === "banned" && !confirm("Ban this creator? Their series will be hidden.")) return;
     await api(`/admin/creators/${id}`, { method: "PATCH", body });
-    qc.invalidateQueries({ queryKey: ["admin-creators"] });
+    refresh();
   }
   return (
-    <div>
-      <div className="flex gap-2 mb-5 flex-wrap">
-        {["all", "approved", "pending", "suspended", "banned"].map(s => (
-          <button key={s} onClick={() => setStatus(s)} className={`h-9 px-4 rounded-lg border text-sm capitalize ${status === s ? "border-primary bg-primary/15 text-primary" : "border-border"}`}>{s}</button>
-        ))}
-      </div>
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary/50 text-xs uppercase text-muted-foreground"><tr>
-            <th className="p-3 text-left">Creator</th><th className="p-3 text-left">Owner</th><th className="p-3 text-right">Series</th><th className="p-3 text-right">Views</th><th className="p-3 text-left">Status</th><th className="p-3 text-left">Badges</th>
-          </tr></thead>
-          <tbody>{data?.map(c => (
-            <tr key={c.id} className="border-t border-border">
-              <td className="p-3"><Link href={creatorHref(c as never)} className="flex items-center gap-2 hover:text-primary"><img src={c.avatar} alt="" className="w-8 h-8 rounded-full object-cover" /><span>{c.name}<span className="block text-xs text-muted-foreground capitalize">{c.type}{c.city ? ` · ${c.city}` : ""}</span></span></Link></td>
-              <td className="p-3 text-xs">{c.ownerEmail ?? "—"}</td>
-              <td className="p-3 text-right">{c.totalManga}</td>
-              <td className="p-3 text-right">{c.totalViews.toLocaleString()}</td>
-              <td className="p-3">
-                <select value={c.status} onChange={e => patch(c.id, { status: e.target.value })} disabled={c.status === "pending"} className="bg-background border border-border rounded-md h-8 px-2 text-xs">
-                  {c.status === "pending" && <option value="pending">pending</option>}
-                  <option value="approved">approved</option><option value="suspended">suspended</option><option value="banned">banned</option>
-                </select>
-              </td>
-              <td className="p-3">
-                <div className="flex gap-1.5">
-                  <button onClick={() => patch(c.id, { isVerified: !c.isVerified })} className={`text-xs px-2 py-1 rounded-md border flex items-center gap-1 ${c.isVerified ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground"}`}><ShieldCheck className="w-3 h-3" /> Verified</button>
-                  {c.type === "studio" && <button onClick={() => patch(c.id, { isRegisteredStudio: !c.isRegisteredStudio })} className={`text-xs px-2 py-1 rounded-md border flex items-center gap-1 ${c.isRegisteredStudio ? "border-accent text-accent bg-accent/10" : "border-border text-muted-foreground"}`}><BadgeCheck className="w-3 h-3" /> Registered</button>}
+    <div className="space-y-4">
+      <Filters value={view} onChange={setView} options={[["list", "All creators"], ["add", "Add creator & invite links"]]} />
+      {view === "add" ? <AddAndInvite /> : (
+        <>
+          <Filters value={status} onChange={setStatus} options={[["all", "All"], ["approved", "Active"], ["pending", "Pending"], ["suspended", "Suspended"], ["banned", "Banned"]]} />
+          <ul className="space-y-3">
+            {data?.map(c => (
+              <li key={c.id} className={`${card} p-4 space-y-3`} data-testid={`creator-row-${c.id}`}>
+                <div className="flex items-center gap-3">
+                  <img src={c.avatar} alt={c.name} className="w-11 h-11 rounded-full object-cover shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <Link href={creatorHref(c as never)} className="font-semibold hover:text-primary">{c.name}</Link>
+                    <p className="text-xs text-muted-foreground truncate">{c.type === "studio" ? "Studio" : "Creator"}{c.city ? `, ${c.city}` : ""} — {c.ownerEmail ?? "no owner"}</p>
+                  </div>
+                  <Pill tone={c.status === "approved" ? "green" : c.status === "pending" ? "muted" : "red"}>{c.status === "approved" ? "active" : c.status}</Pill>
                 </div>
-              </td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </div>
+                <p className="text-xs text-muted-foreground">{c.totalManga} stories, {c.totalViews.toLocaleString("en-IN")} views, {c.followers} subscribers{c.strikes ? `, ${c.strikes} of 3 strikes` : ""}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Act onClick={() => patch(c.id, { isVerified: !c.isVerified })}><ShieldCheck className="w-3.5 h-3.5" />{c.isVerified ? "Remove verified" : "Verify"}</Act>
+                  {c.type === "studio" && <Act onClick={() => patch(c.id, { isRegisteredStudio: !c.isRegisteredStudio })}><BadgeCheck className="w-3.5 h-3.5" />{c.isRegisteredStudio ? "Remove registered" : "Registered studio"}</Act>}
+                  <Act onClick={() => ask({ title: `Send a notice to ${c.name}`, reasonLabel: "Message", confirmLabel: "Send", run: async m => { if (m.trim().length < 3) throw new Error("Write a message"); await api("/admin/notices", { body: { target: "creator", creatorId: c.id, message: m } }); } })}><Megaphone className="w-3.5 h-3.5" />Notice</Act>
+                  {c.status === "approved" && <Act onClick={() => ask({ title: `Strike ${c.name}?`, body: "3 strikes suspends the account. They get your reason.", reasonLabel: "Reason (required)", confirmLabel: "Give strike", danger: true, run: async r => { if (!r.trim()) throw new Error("Write a reason"); await api(`/admin/creators/${c.id}/strike`, { body: { reason: r } }); refresh(); } })} testid={`strike-${c.id}`}><AlertOctagon className="w-3.5 h-3.5" />Strike</Act>}
+                  {!!c.strikes && <Act onClick={() => api(`/admin/creators/${c.id}/clear-strikes`, { body: {} }).then(refresh)}><Undo2 className="w-3.5 h-3.5" />Clear strikes</Act>}
+                  {c.status === "approved" && <Act danger onClick={() => ask({ title: `Suspend ${c.name}?`, body: "Their stories are hidden and they can't publish until you restore them.", confirmLabel: "Suspend", danger: true, run: () => patch(c.id, { status: "suspended" }) })}><PauseCircle className="w-3.5 h-3.5" />Suspend</Act>}
+                  {(c.status === "suspended" || c.status === "banned") && <Act onClick={() => patch(c.id, { status: "approved" })}><Undo2 className="w-3.5 h-3.5" />Restore</Act>}
+                  {c.status !== "banned" && c.status !== "pending" && <Act danger onClick={() => ask({ title: `Ban ${c.name}?`, body: "Permanent. All their stories are hidden.", confirmLabel: "Ban creator", danger: true, run: () => patch(c.id, { status: "banned" }) })}><Ban className="w-3.5 h-3.5" />Ban</Act>}
+                  {c.ownerUserId && <Link href={`/admin/users?id=${c.ownerUserId}`} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border text-xs hover:bg-white/5"><UserIcon className="w-3.5 h-3.5" />Owner account</Link>}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {data?.length === 0 && <Empty>No creators here.</Empty>}
+        </>
+      )}
+      {node}
     </div>
   );
 }
@@ -243,56 +255,108 @@ function Audit() {
   );
 }
 
-export default function Admin() {
-  const { me, loading } = useAuth();
-  const qc = useQueryClient();
-  const isAdmin = me?.role === "admin";
-  const [tab, setTab] = useState<(typeof TABS)[number][0]>("applications");
-  const { data: o } = useQuery({ queryKey: ["admin-overview"], queryFn: () => api<Overview>("/admin/overview"), enabled: isAdmin });
-  const { data: storage } = useQuery({ queryKey: ["storage-status"], queryFn: () => api<{ mode: string; ok: boolean; persistent: boolean; error?: string; advice: string }>("/storage-status"), enabled: isAdmin });
+const SECTIONS = [
+  { id: "", label: "Dashboard", icon: LayoutDashboard },
+  { id: "reports", label: "Reports", icon: Flag },
+  { id: "users", label: "Users", icon: UsersIcon },
+  { id: "creators", label: "Creators", icon: PenTool },
+  { id: "applications", label: "Applications", icon: FileCheck2 },
+  { id: "stories", label: "Stories", icon: BookOpen },
+  { id: "community", label: "Community", icon: MessagesSquare },
+  { id: "notices", label: "Send notice", icon: Megaphone },
+  { id: "settings", label: "Site settings", icon: SettingsIcon },
+  { id: "audit", label: "Audit log", icon: ScrollText },
+] as const;
 
-  async function setMode(mode: "manual" | "auto") {
-    await api("/admin/settings", { method: "PATCH", body: { newCreatorMode: mode } });
-    qc.invalidateQueries({ queryKey: ["admin-overview"] });
-  }
+function Nav({ current, counts, onPick }: { current: string; counts: Record<string, number>; onPick?: () => void }) {
+  return (
+    <nav className="flex flex-col gap-0.5" aria-label="Admin sections">
+      {SECTIONS.map(({ id, label, icon: Icon }) => {
+        const active = current === id;
+        return (
+          <Link key={id} href={id ? `/admin/${id}` : "/admin"} onClick={onPick} data-testid={`admin-nav-${id || "dashboard"}`}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${active ? "bg-primary/15 text-foreground font-semibold" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"}`}>
+            <Icon className={`w-4 h-4 ${active ? "text-primary" : ""}`} />
+            <span className="flex-1">{label}</span>
+            {counts[id] ? <span className="text-[11px] min-w-5 h-5 px-1.5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">{counts[id]}</span> : null}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+export default function Admin() {
+  const { me, loading, logout } = useAuth();
+  const params = useParams<{ section?: string }>();
+  const current = params.section ?? "";
+  const [menu, setMenu] = useState(false);
+  const isAdmin = me?.role === "admin";
+  const { data: d } = useQuery({ queryKey: ["admin-dashboard"], queryFn: () => api<DashboardData>("/admin/dashboard"), enabled: isAdmin, refetchInterval: 60_000 });
 
   if (loading) return null;
-  if (!isAdmin) return <div className="container px-4 py-20 text-center text-muted-foreground">Admins only. <Link href="/" className="text-primary">Home</Link></div>;
+  if (!me) return <Redirect to="/login?next=/admin" />;
+  if (!isAdmin) return <div className="min-h-screen flex items-center justify-center text-muted-foreground p-6 text-center">This area is for Surituk admins only. <Link href="/" className="text-primary ml-1">Go home</Link></div>;
+
+  const counts: Record<string, number> = { reports: d?.reports.open ?? 0, applications: d?.creators.pendingApplications ?? 0 };
+  const section = SECTIONS.find(x => x.id === current) ?? SECTIONS[0];
+  const brand = (
+    <Link href="/admin" className="flex items-center gap-2.5 px-3">
+      <img src={`${import.meta.env.BASE_URL}surituk-mark.svg`} alt="" className="w-8 h-8" />
+      <span className="font-display text-lg font-bold leading-none">Surituk<span className="block text-xs font-sans font-normal text-muted-foreground mt-0.5">Admin</span></span>
+    </Link>
+  );
+  const footer = (
+    <div className="space-y-1 border-t border-border pt-3">
+      <div className="flex items-center gap-2.5 px-3 py-2">
+        <img src={me.avatar} alt={me.displayName} className="w-7 h-7 rounded-full object-cover" />
+        <span className="text-xs min-w-0"><span className="block truncate">{me.displayName}</span><span className="block text-muted-foreground truncate">{me.email}</span></span>
+      </div>
+      <Link href="/" className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"><ExternalLink className="w-4 h-4" />View site</Link>
+      <button onClick={() => logout()} className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"><LogOut className="w-4 h-4" />Log out</button>
+    </div>
+  );
 
   return (
-    <div className="container px-4 py-10">
-      <h1 className="text-4xl font-bold mb-8">Admin</h1>
-      {storage && (!storage.ok || !storage.persistent) && (
-        <div className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm" data-testid="storage-warning">
-          <p className="font-semibold text-red-400 mb-1">⚠️ Photo storage problem ({storage.mode})</p>
-          <p className="text-muted-foreground">{storage.advice}</p>
-          {storage.error && <p className="text-xs text-muted-foreground mt-1 font-mono break-all">{storage.error}</p>}
-        </div>
-      )}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-        {[["Readers", o?.users], ["Creators", o?.creators], ["Studios", o?.studios], ["Waiting review", o?.pendingApplications], ["Published series", o?.series], ["Drafts", o?.drafts]].map(([l, v]) => (
-          <div key={String(l)} className="p-4 rounded-xl border border-border bg-card/40"><div className="text-2xl font-bold">{v ?? "—"}</div><div className="text-xs text-muted-foreground mt-1">{l}</div></div>
-        ))}
-      </div>
-      <div className={`${card} mb-8 flex flex-col sm:flex-row sm:items-center gap-3`}>
-        <div className="flex-1"><p className="font-semibold">New creator mode</p><p className="text-sm text-muted-foreground">Manual: you review every application. Auto: applications are approved instantly.</p></div>
-        <div className="flex gap-2">
-          {(["manual", "auto"] as const).map(m => (
-            <button key={m} onClick={() => setMode(m)} className={`h-10 px-5 rounded-lg border text-sm font-medium ${o?.newCreatorMode === m ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{m === "manual" ? "Manual approval" : "Auto approve"}</button>
-          ))}
-        </div>
-      </div>
-      <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto">
-        {TABS.map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} className={`pb-3 px-4 text-sm font-medium border-b-2 whitespace-nowrap ${tab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}>
-            {label}{id === "applications" && o?.pendingApplications ? <span className="ml-1.5 text-xs px-1.5 rounded-full bg-primary text-primary-foreground">{o.pendingApplications}</span> : null}
-          </button>
-        ))}
-      </div>
-      {tab === "applications" && <Applications />}
-      {tab === "creators" && <Creators />}
-      {tab === "add" && <AddAndInvite />}
-      {tab === "audit" && <Audit />}
+    <div className="min-h-screen bg-background lg:grid lg:grid-cols-[248px_1fr]">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex flex-col gap-5 sticky top-0 h-screen border-r border-border bg-card/40 p-3 pt-5">
+        {brand}
+        <div className="flex-1 overflow-y-auto"><Nav current={current} counts={counts} /></div>
+        {footer}
+      </aside>
+
+      {/* Phone top bar */}
+      <header className="lg:hidden sticky top-0 z-30 flex items-center gap-3 h-14 px-3 border-b border-border bg-background/95 backdrop-blur">
+        <button onClick={() => setMenu(true)} className="w-10 h-10 -ml-1 flex items-center justify-center rounded-lg hover:bg-white/5 relative" aria-label="Open admin menu" data-testid="admin-menu">
+          <Menu className="w-5 h-5" />
+          {(counts.reports + counts.applications) > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary" />}
+        </button>
+        <span className="font-display font-bold text-lg flex-1 truncate">{section.label}</span>
+        <img src={`${import.meta.env.BASE_URL}surituk-mark.svg`} alt="Surituk admin" className="w-7 h-7" />
+      </header>
+      <Sheet open={menu} onOpenChange={setMenu}>
+        <SheetContent side="left" className="w-72 p-3 pt-5 flex flex-col gap-5 bg-background">
+          <SheetHeader className="sr-only"><SheetTitle>Admin menu</SheetTitle></SheetHeader>
+          {brand}
+          <div className="flex-1 overflow-y-auto"><Nav current={current} counts={counts} onPick={() => setMenu(false)} /></div>
+          {footer}
+        </SheetContent>
+      </Sheet>
+
+      <main className="min-w-0 px-4 sm:px-6 lg:px-10 py-6 lg:py-8 max-w-6xl">
+        <h1 className="hidden lg:block text-3xl mb-6">{section.label}</h1>
+        {current === "" && <Dashboard />}
+        {current === "reports" && <Reports />}
+        {current === "users" && <Users />}
+        {current === "creators" && <Creators />}
+        {current === "applications" && <Applications />}
+        {current === "stories" && <Stories />}
+        {current === "community" && <CommunityAdmin />}
+        {current === "notices" && <Notices />}
+        {current === "settings" && <SiteSettings />}
+        {current === "audit" && <Audit />}
+      </main>
     </div>
   );
 }

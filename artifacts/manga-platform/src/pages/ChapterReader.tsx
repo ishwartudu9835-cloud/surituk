@@ -1,4 +1,5 @@
 import { useParams, Link } from "wouter";
+import { ReportButton } from "@/components/ReportButton";
 import { useResolvedId, useCanonicalPath } from "@/lib/links";
 import { StoryRating } from "@/components/StarRating";
 import { AdSlot } from "@/components/AdSlot";
@@ -134,6 +135,7 @@ export default function ChapterReader() {
         <div className="w-full max-w-2xl mx-auto px-4 pt-8">
           <p className="text-center text-sm text-muted-foreground mb-3">Finished Chapter {chapter.chapterNumber}? Tell others what you think.</p>
           <StoryRating mangaId={mId} isOwner={!!me && me.creatorId === (chapter as { creatorId?: number }).creatorId} />
+          <div className="text-center mt-3"><ReportButton targetType="chapter" targetId={chapter.id} label="Report this chapter" /></div>
         </div>
       )}
 

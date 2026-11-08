@@ -25,7 +25,8 @@ import Library from "./pages/Library";
 import Admin from "./pages/Admin";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { FEATURES } from "./lib/features";
-import { rememberRef } from "./lib/api";
+import { rememberRef, api } from "./lib/api";
+import { useQuery } from "@tanstack/react-query";
 import Settings from "./pages/Settings";
 import Onboarding, { OnboardingGate } from "./pages/Onboarding";
 import TeamInvite from "./pages/TeamInvite";
@@ -230,9 +231,23 @@ function Footer() {
   );
 }
 
+/** Notice set by admins in Admin → Settings, shown on every page. */
+function SiteBanner() {
+  const { data } = useQuery({ queryKey: ["site-info"], queryFn: () => api<{ banner: string }>("/site-info"), staleTime: 5 * 60_000 });
+  const [closed, setClosed] = useState(() => { try { return sessionStorage.getItem("surituk.banner") ?? ""; } catch { return ""; } });
+  if (!data?.banner || closed === data.banner) return null;
+  return (
+    <div className="bg-[var(--brand-haldi)] text-[var(--brand-ink)] text-sm font-medium px-4 py-2 flex items-center justify-center gap-3 text-center" role="status" data-testid="site-banner">
+      <span>{data.banner}</span>
+      <button onClick={() => { setClosed(data.banner); try { sessionStorage.setItem("surituk.banner", data.banner); } catch { /* ignore */ } }} aria-label="Close notice" className="shrink-0 opacity-70 hover:opacity-100"><X className="w-4 h-4" /></button>
+    </div>
+  );
+}
+
 function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen flex flex-col w-full bg-background text-foreground selection:bg-primary/30">
+      <SiteBanner />
       <Navbar />
       <OnboardingGate />
       <main className="flex-1">{children}</main>
@@ -260,6 +275,8 @@ function Router() {
           </ReaderLayout>
         )}
       </Route>
+      {/* Admin control centre — its own full-screen layout */}
+      <Route path="/admin/:section?" component={Admin} />
       {/* All other pages */}
       <Route>
         <Layout>
@@ -286,7 +303,6 @@ function Router() {
             <Route path="/join/team/:token" component={TeamInvite} />
             <Route path="/join/creator/:token">{(p: { token: string }) => <Settings key={p.token} />}</Route>
             <Route path="/library" component={Library} />
-            <Route path="/admin" component={Admin} />
             <Route path="/about" component={InfoPage} />
             <Route path="/contact" component={InfoPage} />
             <Route path="/terms" component={InfoPage} />

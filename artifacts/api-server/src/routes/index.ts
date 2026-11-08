@@ -19,6 +19,8 @@ import studioRouter from "./studio";
 import readerRouter from "./reader";
 import proRouter from "./pro";
 import ratingsRouter from "./ratings";
+import reportsRouter from "./reports";
+import adminControlRouter from "./adminControl";
 
 const router: IRouter = Router();
 
@@ -27,6 +29,8 @@ router.use(authRouter);
 router.use(readerRouter);
 router.use(proRouter);
 router.use(ratingsRouter);
+router.use(reportsRouter);
+router.use(adminControlRouter);
 router.use(mangaRouter);
 router.use(chaptersRouter);
 router.use(creatorsRouter);

@@ -45,7 +45,7 @@ export async function loadUser(req: Request, _res: Response, next: NextFunction)
     const data = verifyToken<{ uid: number; t: string }>(header.slice(7));
     if (data?.t === "session") {
       const [user] = await db.select().from(usersTable).where(eq(usersTable.id, data.uid));
-      if (user) {
+      if (user && !user.banned) {
         req.user = user;
         if (user.creatorId) {
           const [c] = await db.select({ status: creatorsTable.status }).from(creatorsTable).where(eq(creatorsTable.id, user.creatorId));

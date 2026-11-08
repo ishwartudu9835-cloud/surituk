@@ -15,7 +15,7 @@ export function OnboardingGate() {
   const { me } = useAuth();
   const [location, navigate] = useLocation();
   useEffect(() => {
-    if (me && !me.onboarded && !SKIP.some(p => location.startsWith(p))) {
+    if (me && !me.onboarded && me.role !== "admin" && !SKIP.some(p => location.startsWith(p))) {
       navigate(`/welcome?next=${encodeURIComponent(location + window.location.search)}`);
     }
   }, [me, location, navigate]);

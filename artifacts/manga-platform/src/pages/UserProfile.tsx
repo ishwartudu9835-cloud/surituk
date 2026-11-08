@@ -1,4 +1,5 @@
 import { useParams, Link, Redirect } from "wouter";
+import { ReportButton } from "@/components/ReportButton";
 import { mangaHref, userHref } from "@/lib/links";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -90,6 +91,7 @@ export default function UserProfile() {
             <span>{user.completedManga} completed</span>
             <span>•</span>
             <span>Joined {new Date(user.joinedAt).toLocaleDateString()}</span>
+            {!isOwn && me && <ReportButton targetType="user" targetId={user.id} iconOnly label="Report user" />}
           </div>
         </div>
         {isOwn && (

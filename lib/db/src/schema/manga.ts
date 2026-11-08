@@ -21,6 +21,9 @@ export const mangaTable = pgTable("manga", {
   rating: real("rating").default(0),
   ratingCount: integer("rating_count").notNull().default(0),
   isFeatured: boolean("is_featured").notNull().default(false),
+  /** Unlisted by an admin (hidden from everyone except the creator and admins). */
+  adminHidden: boolean("admin_hidden").notNull().default(false),
+  adminNote: text("admin_note"),
   isSponsored: boolean("is_sponsored").notNull().default(false),
   isPublished: boolean("is_published").notNull().default(true),
   isMature: boolean("is_mature").notNull().default(false),

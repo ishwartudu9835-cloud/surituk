@@ -67,13 +67,14 @@ const postFields = {
   likes: communityPostsTable.likes,
   replies: communityPostsTable.replies,
   tags: communityPostsTable.tags,
+  hidden: communityPostsTable.hidden,
   createdAt: communityPostsTable.createdAt,
 };
 type PostRow = {
   id: number; type: string; title: string; content: string; images: string[] | null; pollOptions: string[] | null; authorId: number;
   userName: string | null; userAvatar: string | null; username: string | null;
   creatorId: number | null; creatorName: string | null; creatorAvatar: string | null; creatorSlug: string | null; creatorVerified: boolean | null;
-  relatedMangaId: number | null; likes: number; replies: number; tags: string[] | null; createdAt: Date;
+  relatedMangaId: number | null; hidden: boolean; likes: number; replies: number; tags: string[] | null; createdAt: Date;
 };
 
 function selectPosts() {
@@ -151,6 +152,8 @@ async function decorate(req: Request, rows: PostRow[]) {
       } : null,
       story: story ? { ...story, myRating: myStoryRating.get(story.id) ?? null } : null,
       canDelete: !!req.user && (req.user.id === r.authorId || isAdmin(req)),
+      hidden: r.hidden,
+      isAdminView: isAdmin(req),
       tags: r.tags ?? [],
       createdAt: r.createdAt.toISOString(),
     };
@@ -174,6 +177,7 @@ router.get("/community/posts", async (req, res): Promise<void> => {
   const conds: SQL[] = [];
   if (type && (TYPES as readonly string[]).includes(type)) conds.push(eq(communityPostsTable.type, type));
   if (creatorId) conds.push(eq(communityPostsTable.creatorId, creatorId));
+  if (!isAdmin(req)) conds.push(eq(communityPostsTable.hidden, false));
   const q = selectPosts().orderBy(desc(communityPostsTable.createdAt)).limit(limit);
   const rows = (conds.length ? await q.where(and(...conds)) : await q) as PostRow[];
   res.json(await decorate(req, rows));

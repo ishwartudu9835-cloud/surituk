@@ -1,4 +1,5 @@
 import { Link, useParams } from "wouter";
+import { ReportButton } from "@/components/ReportButton";
 import { StoryRating } from "@/components/StarRating";
 import { useResolvedId, useCanonicalPath, mangaHref, creatorHrefFromManga, formatCount } from "@/lib/links";
 import { SubscribeButton } from "@/components/SubscribeButton";
@@ -134,6 +135,7 @@ export default function MangaDetail() {
 
             <div className="mt-6 max-w-sm">
               <StoryRating mangaId={manga.id} isOwner={me?.creatorId === manga.creatorId} />
+              {me?.creatorId !== manga.creatorId && <ReportButton targetType="manga" targetId={manga.id} label="Report this story" className="mt-3" />}
             </div>
 
             <div className="flex flex-wrap gap-3 mt-6">

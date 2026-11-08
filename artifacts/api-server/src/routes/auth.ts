@@ -1,3 +1,4 @@
+import { getSetting } from "../lib/creatorProgram";
 import { isDisposableEmail } from "../lib/trust";
 import crypto from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
@@ -45,7 +46,7 @@ async function uniqueUsername(base: string) {
 }
 
 const NEW_ACCOUNTS_PER_IP_PER_DAY = Number(process.env.NEW_ACCOUNTS_PER_IP_PER_DAY ?? 5);
-class SignupLimitError extends Error { constructor() { super("Too many new accounts from this network today. Please try again tomorrow."); } }
+class SignupLimitError extends Error { constructor(msg = "Too many new accounts from this network today. Please try again tomorrow.") { super(msg); } }
 
 async function findOrCreateUser(email: string, extra: { name?: string; picture?: string; googleId?: string; ref?: string; ip?: string } = {}) {
   email = email.toLowerCase();
@@ -65,6 +66,9 @@ async function findOrCreateUser(email: string, extra: { name?: string; picture?:
     if (Object.keys(patch).length) [user] = await db.update(usersTable).set(patch).where(eq(usersTable.id, user.id)).returning();
     return user;
   }
+
+  // Admins can pause new sign-ups.
+  if (!isAdmin && (await getSetting("signups_open", "true")) === "false") throw new SignupLimitError("New sign-ups are paused right now. Please try again later.");
 
   // Fake-account guard: at most a few new accounts per network per day.
   if (extra.ip && !isAdmin) {
@@ -145,6 +149,7 @@ router.post("/auth/otp/verify", async (req, res): Promise<void> => {
   let user;
   try { user = await findOrCreateUser(email, { ref: typeof req.body?.ref === "string" ? req.body.ref : undefined, ip: ipOf(req) }); }
   catch (e) { if (e instanceof SignupLimitError) { res.status(429).json({ error: e.message }); return; } throw e; }
+  if (user.banned) { res.status(403).json({ error: "This account has been banned. Contact support if you think this is a mistake." }); return; }
   res.json({ token: createSessionToken(user.id), user: publicUser(user) });
 });
 
@@ -169,6 +174,7 @@ router.post("/auth/google", async (req, res): Promise<void> => {
   let user;
   try { user = await findOrCreateUser(info.email, { name: info.name, picture: info.picture, googleId: info.sub, ref: typeof req.body?.ref === "string" ? req.body.ref : undefined, ip: ipOf(req) }); }
   catch (e) { if (e instanceof SignupLimitError) { res.status(429).json({ error: e.message }); return; } throw e; }
+  if (user.banned) { res.status(403).json({ error: "This account has been banned. Contact support if you think this is a mistake." }); return; }
   res.json({ token: createSessionToken(user.id), user: publicUser(user) });
 });
 

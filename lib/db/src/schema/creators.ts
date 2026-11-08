@@ -27,6 +27,8 @@ export const creatorsTable = pgTable("creators", {
   followers: integer("followers").notNull().default(0),
   revenue: real("revenue").default(0),
   isVerified: boolean("is_verified").notNull().default(false),
+  /** Rule-break warnings from admins. 3 strikes suspends the account. */
+  strikes: integer("strikes").notNull().default(0),
   upiId: text("upi_id"),
   payoutName: text("payout_name"),
   rank: integer("rank"),

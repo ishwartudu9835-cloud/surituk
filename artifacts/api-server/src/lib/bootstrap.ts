@@ -63,6 +63,30 @@ export async function runMigrations() {
       created_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (post_id, user_id)
     )`,
+    // --- admin powers ---
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS banned boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason text`,
+    `ALTER TABLE manga ADD COLUMN IF NOT EXISTS admin_hidden boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE manga ADD COLUMN IF NOT EXISTS admin_note text`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS strikes integer NOT NULL DEFAULT 0`,
+    `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS hidden boolean NOT NULL DEFAULT false`,
+    `CREATE TABLE IF NOT EXISTS reports (
+      id serial PRIMARY KEY,
+      reporter_id integer REFERENCES users(id) ON DELETE SET NULL,
+      target_type text NOT NULL,
+      target_id integer NOT NULL,
+      reason text NOT NULL,
+      details text,
+      claimant_name text,
+      claimant_email text,
+      original_url text,
+      status text NOT NULL DEFAULT 'open',
+      resolution text,
+      resolved_by integer,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      resolved_at timestamptz
+    )`,
+    `CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status, created_at DESC)`,
     // --- 5-star ratings ---
     `ALTER TABLE manga ADD COLUMN IF NOT EXISTS rating_count integer NOT NULL DEFAULT 0`,
     `CREATE TABLE IF NOT EXISTS manga_ratings (
