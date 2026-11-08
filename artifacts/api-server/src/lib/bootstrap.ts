@@ -53,6 +53,23 @@ export async function runMigrations() {
     `ALTER TABLE manga ADD COLUMN IF NOT EXISTS slug text`,
     `CREATE UNIQUE INDEX IF NOT EXISTS manga_slug_unique ON manga (slug)`,
     `ALTER TABLE creators ADD COLUMN IF NOT EXISTS slug text`,
+    // --- community: creator-only posts with photos, replies from anyone, likes ---
+    `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS images text[] NOT NULL DEFAULT '{}'`,
+    `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS creator_id integer`,
+    `CREATE TABLE IF NOT EXISTS community_replies (
+      id serial PRIMARY KEY,
+      post_id integer NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+      author_id integer NOT NULL REFERENCES users(id),
+      content text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`,
+    `CREATE INDEX IF NOT EXISTS community_replies_post_idx ON community_replies (post_id, created_at)`,
+    `CREATE TABLE IF NOT EXISTS community_likes (
+      post_id integer NOT NULL REFERENCES community_posts(id) ON DELETE CASCADE,
+      user_id integer NOT NULL REFERENCES users(id),
+      created_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (post_id, user_id)
+    )`,
     `CREATE UNIQUE INDEX IF NOT EXISTS creators_slug_unique ON creators (slug)`,
     // --- reading history ---
     `ALTER TABLE reading_history ALTER COLUMN last_chapter TYPE real`,
