@@ -87,3 +87,30 @@ export async function getPublicObject(key: string) {
     return null;
   }
 }
+
+/**
+ * Where photos are stored, and whether saving + reading back actually works.
+ * "local-disk" on Render means photos disappear on every deploy.
+ */
+export async function storageSelfTest(): Promise<{ mode: "s3" | "local-disk"; ok: boolean; persistent: boolean; publicUrl: boolean; error?: string; advice: string }> {
+  if (!s3) {
+    return {
+      mode: "local-disk", ok: true, persistent: false, publicUrl: false,
+      advice: "Photos are being saved on the server's own disk. On Render's free plan that disk is wiped on every deploy, so photos vanish. Add the S3/Neon storage variables on Render (AWS_ENDPOINT_URL_S3, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, S3_BUCKET) and redeploy.",
+    };
+  }
+  const key = "images/_health/check.txt";
+  try {
+    await s3.send(new PutObjectCommand({ Bucket: config.s3.publicBucket, Key: key, Body: Buffer.from(String(Date.now())), ContentType: "text/plain" }));
+    const r = await s3.send(new GetObjectCommand({ Bucket: config.s3.publicBucket, Key: key }));
+    await (r.Body as { transformToString?: () => Promise<string> })?.transformToString?.();
+    return { mode: "s3", ok: true, persistent: true, publicUrl: !!config.s3.publicBaseUrl, advice: "Storage is working. New photos are kept permanently." };
+  } catch (e) {
+    const err = e as { name?: string; Code?: string; message?: string };
+    return {
+      mode: "s3", ok: false, persistent: true, publicUrl: !!config.s3.publicBaseUrl,
+      error: `${err.name ?? err.Code ?? "Error"}: ${(err.message ?? "").slice(0, 200)}`,
+      advice: "Storage is configured but not working — usually the access key was rotated/deleted or the bucket name is wrong. Update the keys on Render and redeploy.",
+    };
+  }
+}

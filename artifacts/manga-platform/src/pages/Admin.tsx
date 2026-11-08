@@ -249,6 +249,7 @@ export default function Admin() {
   const isAdmin = me?.role === "admin";
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("applications");
   const { data: o } = useQuery({ queryKey: ["admin-overview"], queryFn: () => api<Overview>("/admin/overview"), enabled: isAdmin });
+  const { data: storage } = useQuery({ queryKey: ["storage-status"], queryFn: () => api<{ mode: string; ok: boolean; persistent: boolean; error?: string; advice: string }>("/storage-status"), enabled: isAdmin });
 
   async function setMode(mode: "manual" | "auto") {
     await api("/admin/settings", { method: "PATCH", body: { newCreatorMode: mode } });
@@ -261,6 +262,13 @@ export default function Admin() {
   return (
     <div className="container px-4 py-10">
       <h1 className="text-4xl font-bold mb-8">Admin</h1>
+      {storage && (!storage.ok || !storage.persistent) && (
+        <div className="mb-6 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm" data-testid="storage-warning">
+          <p className="font-semibold text-red-400 mb-1">⚠️ Photo storage problem ({storage.mode})</p>
+          <p className="text-muted-foreground">{storage.advice}</p>
+          {storage.error && <p className="text-xs text-muted-foreground mt-1 font-mono break-all">{storage.error}</p>}
+        </div>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
         {[["Readers", o?.users], ["Creators", o?.creators], ["Studios", o?.studios], ["Waiting review", o?.pendingApplications], ["Published series", o?.series], ["Drafts", o?.drafts]].map(([l, v]) => (
           <div key={String(l)} className="p-4 rounded-xl border border-border bg-card/40"><div className="text-2xl font-bold">{v ?? "—"}</div><div className="text-xs text-muted-foreground mt-1">{l}</div></div>

@@ -2,6 +2,7 @@ import express, { type Express, type Request, type Response, type NextFunction }
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
+import { storageSelfTest } from "./lib/storage";
 import { logger } from "./lib/logger";
 import { loadUser } from "./lib/auth";
 import { localPublicDir, getPublicObject } from "./lib/storage";
@@ -32,6 +33,12 @@ app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// Quick public check of where uploaded photos are kept (no secrets shown).
+app.get("/api/storage-status", async (_req, res) => {
+  const result = await storageSelfTest();
+  res.json(result);
+});
 
 // Uploaded images. With S3 storage they are streamed from the bucket; otherwise from local disk (dev only).
 if (s3Enabled) {
