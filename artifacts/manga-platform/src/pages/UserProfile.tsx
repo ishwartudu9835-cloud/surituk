@@ -1,4 +1,4 @@
-import { useParams, Link } from "wouter";
+import { useParams, Link, Redirect } from "wouter";
 import { useGetUser, useGetUserReadingHistory, useGetUserBookmarks, useGetUserRewards, useGetUserNotifications, getGetUserQueryKey, getGetUserReadingHistoryQueryKey, getGetUserBookmarksQueryKey, getGetUserRewardsQueryKey, getGetUserNotificationsQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -19,18 +19,23 @@ function timeAgo(dateStr: string) {
 }
 
 export default function UserProfile() {
-  const { userId } = useParams<{ userId: string }>();
-  const id = parseInt(userId, 10);
+  const { userId } = useParams<{ userId?: string }>();
+  const { me, loading: authLoading } = useAuth();
+  // Your own profile lives at /profile (no number in the URL). Profiles are private.
+  const id = userId ? parseInt(userId, 10) : (me?.id ?? 0);
+  const tabParam = new URLSearchParams(window.location.search).get("tab");
 
   const { data: user, isLoading } = useGetUser(id, { query: { enabled: !!id, queryKey: getGetUserQueryKey(id) } });
   const { data: history } = useGetUserReadingHistory(id, { query: { enabled: !!id, queryKey: getGetUserReadingHistoryQueryKey(id) } });
   const { data: bookmarks } = useGetUserBookmarks(id, { query: { enabled: !!id, queryKey: getGetUserBookmarksQueryKey(id) } });
   const { data: rewards } = useGetUserRewards(id, { query: { enabled: !!id, queryKey: getGetUserRewardsQueryKey(id) } });
-  const { me } = useAuth();
   const isOwn = !!me && me.id === id;
   const { data: notifications } = useGetUserNotifications(id, { query: { enabled: !!id && isOwn, queryKey: getGetUserNotificationsQueryKey(id) } });
 
-  if (isLoading) {
+  if (userId && me && me.id === id) return <Redirect to="/profile" replace />;
+  if (!userId && !authLoading && !me) return <Redirect to="/login?next=/profile" replace />;
+
+  if (isLoading || authLoading) {
     return (
       <div className="container px-4 py-8 space-y-6">
         <Skeleton className="h-32 w-full rounded-xl" />
@@ -40,7 +45,12 @@ export default function UserProfile() {
     );
   }
 
-  if (!user) return <div className="container py-20 text-center text-muted-foreground">User not found</div>;
+  if (!user) return (
+    <div className="container py-20 text-center text-muted-foreground space-y-2">
+      <p className="text-lg text-foreground">This profile is private</p>
+      <p className="text-sm">Reader profiles, history and bookmarks are only visible to their owner.</p>
+    </div>
+  );
 
   const notifTypeColor: Record<string, string> = {
     new_chapter: "bg-green-500/20 text-green-400 border-green-500/30",
@@ -100,7 +110,7 @@ export default function UserProfile() {
         </div>
       )}
 
-      <Tabs defaultValue="history">
+      <Tabs defaultValue={tabParam === "notifications" && isOwn ? "notifications" : "history"}>
         <TabsList className={`border border-white/10 bg-card/30 mb-6 h-auto w-full sm:w-max grid grid-cols-2 sm:inline-flex gap-1`}>
           <TabsTrigger value="history" className="flex items-center gap-2" data-testid="tab-history"><BookOpen className="w-4 h-4" /> History</TabsTrigger>
           <TabsTrigger value="bookmarks" className="flex items-center gap-2" data-testid="tab-bookmarks"><Bookmark className="w-4 h-4" /> Bookmarks</TabsTrigger>

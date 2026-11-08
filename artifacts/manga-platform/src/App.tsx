@@ -63,7 +63,7 @@ function UserMenu() {
           <div className="text-xs text-muted-foreground truncate">{me.email}</div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate(`/user/${me.id}`)}><User className="w-4 h-4 mr-2" /> Profile</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/profile")}><User className="w-4 h-4 mr-2" /> Profile</DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate("/library")}><LibraryIcon className="w-4 h-4 mr-2" /> My Library</DropdownMenuItem>
         {me.creatorId
           ? <DropdownMenuItem onClick={() => navigate("/creator-dashboard")}><PenTool className="w-4 h-4 mr-2" /> Creator Studio</DropdownMenuItem>
@@ -117,7 +117,7 @@ function Navbar() {
             <Search className="w-3.5 h-3.5 shrink-0" /> Search...
           </Link>
           {me && (
-            <Link href={`/user/${me.id}`} className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors text-muted-foreground hover:text-foreground" aria-label="Notifications">
+            <Link href="/profile?tab=notifications" className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors text-muted-foreground hover:text-foreground" aria-label="Notifications">
               <Bell className="w-4 h-4" />
             </Link>
           )}
@@ -148,7 +148,7 @@ function Navbar() {
             { href: "/community", label: "Community" },
             ...(me ? [
               { href: "/library", label: "My Library" },
-              { href: `/user/${me.id}`, label: "My Profile" },
+              { href: "/profile", label: "My Profile" },
               { href: me.creatorId ? "/creator-dashboard" : "/settings?tab=pro", label: me.creatorId ? "Creator Studio" : "Become a Creator" },
               { href: "/settings", label: "Settings" },
             ] : [{ href: "/login", label: "Log in / Sign up" }]),
@@ -269,6 +269,7 @@ function Router() {
             <Route path="/community" component={Community} />
             <Route path="/creator/:creatorId" component={CreatorProfile} />
             <Route path="/creator-dashboard" component={CreatorDashboard} />
+            <Route path="/profile" component={UserProfile} />
             <Route path="/user/:userId" component={UserProfile} />
             <Route path="/genres/:slug" component={GenrePage} />
             <Route path="/login" component={Login} />

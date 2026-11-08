@@ -11,10 +11,20 @@ import {
 
 const router: IRouter = Router();
 
+/**
+ * Reader profiles are private: only the owner (or an admin) can see a profile,
+ * its reading history, bookmarks and points. Others get a plain 404 so user ids
+ * can't be used to discover who is registered.
+ */
+function canView(req: { user?: { id: number; role?: string | null } | null }, userId: number): boolean {
+  return !!req.user && (req.user.id === userId || req.user.role === "admin");
+}
+
 router.get("/users/:userId", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
   const userId = parseInt(raw, 10);
   if (isNaN(userId)) { res.status(400).json({ error: "Invalid user id" }); return; }
+  if (!canView(req, userId)) { res.status(404).json({ error: "User not found" }); return; }
 
   const [row] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!row) { res.status(404).json({ error: "User not found" }); return; }
@@ -38,6 +48,7 @@ router.get("/users/:userId/reading-history", async (req, res): Promise<void> => 
   const raw = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
   const userId = parseInt(raw, 10);
   if (isNaN(userId)) { res.status(400).json({ error: "Invalid user id" }); return; }
+  if (!canView(req, userId)) { res.status(404).json({ error: "User not found" }); return; }
 
   const rows = await db
     .select({
@@ -69,6 +80,7 @@ router.get("/users/:userId/bookmarks", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
   const userId = parseInt(raw, 10);
   if (isNaN(userId)) { res.status(400).json({ error: "Invalid user id" }); return; }
+  if (!canView(req, userId)) { res.status(404).json({ error: "User not found" }); return; }
 
   const rows = await db
     .select({
@@ -111,6 +123,7 @@ router.get("/users/:userId/rewards", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
   const userId = parseInt(raw, 10);
   if (isNaN(userId)) { res.status(400).json({ error: "Invalid user id" }); return; }
+  if (!canView(req, userId)) { res.status(404).json({ error: "User not found" }); return; }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
