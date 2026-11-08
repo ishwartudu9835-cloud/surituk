@@ -127,6 +127,9 @@ function Navbar() {
             </Link>
           )}
           {/* Mobile menu toggle */}
+          <Link href="/browse?search=1" className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors text-muted-foreground hover:text-foreground" aria-label="Search" data-testid="button-mobile-search">
+            <Search className="w-4 h-4" />
+          </Link>
           <button
             className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors"
             onClick={() => setMenuOpen(v => !v)}

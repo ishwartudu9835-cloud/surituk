@@ -203,8 +203,8 @@ export default function MangaDetail() {
             <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
               {trending.filter(m => m.id !== manga.id).slice(0, 6).map(m => (
                 <Link key={m.id} href={mangaHref(m as never)} className="group" data-testid={`card-related-${m.id}`}>
-                  <div className="aspect-[3/4] rounded-lg overflow-hidden border border-white/5 mb-2">
-                    <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <div className="panel aspect-[3/4] mb-2">
+                    <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover" />
                   </div>
                   <p className="text-xs font-medium line-clamp-2 group-hover:text-primary transition-colors">{m.title}</p>
                 </Link>

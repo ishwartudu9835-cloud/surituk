@@ -58,8 +58,8 @@ export default function Store() {
         {isLoading && Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="aspect-[3/4] rounded-xl" />)}
         {data?.map(p => (
           <Link key={p.id} href={`/store/${p.id}`} className="group">
-            <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-border mb-3 bg-card">
-              <img src={p.coverImage} alt={p.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+            <div className="panel aspect-[3/4] mb-3">
+              <img src={p.coverImage} alt={p.title} className="w-full h-full object-cover" loading="lazy" />
               <div className="absolute top-2 left-2 flex gap-1">
                 {p.format !== "physical" && <span className="px-2 py-0.5 rounded bg-black/70 text-[10px] font-semibold flex items-center gap-1"><BookOpen className="w-3 h-3" /> eBook</span>}
                 {p.format !== "digital" && <span className="px-2 py-0.5 rounded bg-black/70 text-[10px] font-semibold flex items-center gap-1"><Package className="w-3 h-3" /> Print</span>}

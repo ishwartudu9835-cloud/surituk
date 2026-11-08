@@ -112,8 +112,8 @@ export default function CreatorProfile() {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-12">
             {creatorManga.map(m => (
               <Link key={m.id} href={mangaHref(m as never)} className="group">
-                <div className="aspect-[3/4] rounded-lg overflow-hidden border border-border mb-2">
-                  <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <div className="panel aspect-[3/4] mb-2">
+                  <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover" />
                 </div>
                 <p className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">{m.title}</p>
                 <p className="text-xs text-muted-foreground">{m.chapterCount} chapters · {m.views.toLocaleString()} views</p>
@@ -138,7 +138,7 @@ export default function CreatorProfile() {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-12">
               {books.map(b => (
                 <Link key={b.id} href={`/store/${b.id}`} className="group">
-                  <div className="aspect-[3/4] rounded-lg overflow-hidden border border-border mb-2"><img src={b.coverImage} alt={b.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div>
+                  <div className="panel aspect-[3/4] mb-2"><img src={b.coverImage} alt={b.title} className="w-full h-full object-cover" /></div>
                   <p className="text-sm font-medium line-clamp-2 group-hover:text-primary">{b.title}</p>
                   <p className="text-xs font-semibold text-accent">{priceLine(b)}</p>
                 </Link>

@@ -155,7 +155,7 @@ export default function UserProfile() {
               <div className="col-span-full text-center py-12 text-muted-foreground border border-white/5 rounded-xl">No bookmarks yet</div>
             ) : bookmarks.map(m => (
               <Link key={m.id} href={mangaHref(m as never)} className="group" data-testid={`card-bookmark-${m.id}`}>
-                <div className="aspect-[3/4] rounded-lg overflow-hidden border border-white/5 mb-2">
+                <div className="panel aspect-[3/4] mb-2">
                   <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                 </div>
                 <p className="text-xs font-medium line-clamp-2 group-hover:text-primary transition-colors">{m.title}</p>

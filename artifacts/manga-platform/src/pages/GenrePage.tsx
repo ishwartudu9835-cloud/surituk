@@ -60,8 +60,8 @@ export default function GenrePage() {
                 data-testid={`card-genre-manga-${m.id}`}
               >
                 <Link href={mangaHref(m as never)} className="group block">
-                  <div className="relative aspect-[3/4] rounded-lg overflow-hidden mb-2 border border-white/5">
-                    <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  <div className="panel aspect-[3/4] mb-2">
+                    <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover" />
                     <div className="absolute top-2 left-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${statusColor[m.status] ?? ""}`}>{m.status}</span>
                     </div>

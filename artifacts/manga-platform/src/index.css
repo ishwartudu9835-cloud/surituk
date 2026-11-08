@@ -73,52 +73,54 @@
   --elevate-1: rgba(247,239,227, .04);
   --elevate-2: rgba(247,239,227, .08);
 
-  --background: 20 12% 5%;
-  --foreground: 36 55% 93%;
-  --border: 24 12% 15%;
-  --card: 22 12% 8%;
-  --card-foreground: 36 55% 93%;
-  --card-border: 24 12% 15%;
-  --sidebar: 22 12% 7%;
-  --sidebar-foreground: 36 55% 93%;
-  --sidebar-border: 24 12% 15%;
+  --background: 258 22% 9%;
+  --foreground: 38 55% 91%;
+  --border: 255 20% 20%;
+  --card: 257 21% 13%;
+  --card-foreground: 38 55% 91%;
+  --card-border: 255 20% 20%;
+  --sidebar: 257 21% 11%;
+  --sidebar-foreground: 38 55% 91%;
+  --sidebar-border: 255 20% 20%;
   --sidebar-primary: 358 80% 49%;
-  --sidebar-primary-foreground: 36 60% 97%;
-  --sidebar-accent: 24 12% 13%;
-  --sidebar-accent-foreground: 36 55% 93%;
+  --sidebar-primary-foreground: 38 60% 97%;
+  --sidebar-accent: 255 23% 17%;
+  --sidebar-accent-foreground: 38 55% 91%;
   --sidebar-ring: 358 80% 49%;
-  --popover: 22 12% 8%;
-  --popover-foreground: 36 55% 93%;
-  --popover-border: 24 12% 15%;
+  --popover: 257 21% 13%;
+  --popover-foreground: 38 55% 91%;
+  --popover-border: 255 20% 20%;
 
   --primary: 358 80% 49%;
-  --primary-foreground: 36 60% 97%;
-  --secondary: 24 12% 13%;
-  --secondary-foreground: 36 55% 93%;
-  --muted: 24 12% 12%;
-  --muted-foreground: 30 12% 62%;
-  --accent: 38 78% 58%;
-  --accent-foreground: 20 12% 6%;
-  --destructive: 0 70% 40%;
-  --destructive-foreground: 36 60% 97%;
+  --primary-foreground: 38 60% 97%;
+  --secondary: 255 23% 17%;
+  --secondary-foreground: 38 55% 91%;
+  --muted: 255 23% 15%;
+  --muted-foreground: 257 12% 66%;
+  --accent: 41 90% 55%;
+  --accent-foreground: 258 22% 9%;
+  --destructive: 0 70% 45%;
+  --destructive-foreground: 38 60% 97%;
 
-  --input: 24 12% 15%;
-  --ring: 358 80% 49%;
+  --input: 255 20% 22%;
+  --ring: 41 90% 55%;
   --chart-1: 358 80% 52%;
-  --chart-2: 38 78% 58%;
-  --chart-3: 36 40% 80%;
-  --chart-4: 14 70% 45%;
-  --chart-5: 30 12% 45%;
+  --chart-2: 41 90% 55%;
+  --chart-3: 38 40% 80%;
+  --chart-4: 200 60% 55%;
+  --chart-5: 257 12% 50%;
 
-  --app-font-sans: 'Manrope', 'Noto Sans Devanagari', system-ui, sans-serif;
-  --app-font-serif: 'Playfair Display', Georgia, serif;
+  --app-font-sans: 'Mukta', system-ui, sans-serif;
+  --app-font-serif: 'Baloo 2', 'Mukta', system-ui, sans-serif;
   --app-font-mono: 'JetBrains Mono', Menlo, monospace;
-  --radius: .625rem;
+  --radius: .5rem;
 
   /* Surituk brand tokens */
   --brand-red: #E1191F;
-  --brand-cream: #F7EFE3;
-  --brand-ink: #0F0D0C;
+  --brand-cream: #F5ECDD;
+  --brand-ink: #15121C;
+  --brand-haldi: #F4B227;
+  --panel-ink: #07060A;
 }
 
 .dark {
@@ -128,42 +130,42 @@
   --elevate-1: rgba(247,239,227, .04);
   --elevate-2: rgba(247,239,227, .08);
 
-  --background: 20 12% 5%;
-  --foreground: 36 55% 93%;
-  --border: 24 12% 15%;
-  --card: 22 12% 8%;
-  --card-foreground: 36 55% 93%;
-  --card-border: 24 12% 15%;
-  --sidebar: 22 12% 7%;
-  --sidebar-foreground: 36 55% 93%;
-  --sidebar-border: 24 12% 15%;
+  --background: 258 22% 9%;
+  --foreground: 38 55% 91%;
+  --border: 255 20% 20%;
+  --card: 257 21% 13%;
+  --card-foreground: 38 55% 91%;
+  --card-border: 255 20% 20%;
+  --sidebar: 257 21% 11%;
+  --sidebar-foreground: 38 55% 91%;
+  --sidebar-border: 255 20% 20%;
   --sidebar-primary: 358 80% 49%;
-  --sidebar-primary-foreground: 36 60% 97%;
-  --sidebar-accent: 24 12% 13%;
-  --sidebar-accent-foreground: 36 55% 93%;
+  --sidebar-primary-foreground: 38 60% 97%;
+  --sidebar-accent: 255 23% 17%;
+  --sidebar-accent-foreground: 38 55% 91%;
   --sidebar-ring: 358 80% 49%;
-  --popover: 22 12% 8%;
-  --popover-foreground: 36 55% 93%;
-  --popover-border: 24 12% 15%;
+  --popover: 257 21% 13%;
+  --popover-foreground: 38 55% 91%;
+  --popover-border: 255 20% 20%;
 
   --primary: 358 80% 49%;
-  --primary-foreground: 36 60% 97%;
-  --secondary: 24 12% 13%;
-  --secondary-foreground: 36 55% 93%;
-  --muted: 24 12% 12%;
-  --muted-foreground: 30 12% 62%;
-  --accent: 38 78% 58%;
-  --accent-foreground: 20 12% 6%;
-  --destructive: 0 70% 40%;
-  --destructive-foreground: 36 60% 97%;
+  --primary-foreground: 38 60% 97%;
+  --secondary: 255 23% 17%;
+  --secondary-foreground: 38 55% 91%;
+  --muted: 255 23% 15%;
+  --muted-foreground: 257 12% 66%;
+  --accent: 41 90% 55%;
+  --accent-foreground: 258 22% 9%;
+  --destructive: 0 70% 45%;
+  --destructive-foreground: 38 60% 97%;
 
-  --input: 24 12% 15%;
-  --ring: 358 80% 49%;
+  --input: 255 20% 22%;
+  --ring: 41 90% 55%;
   --chart-1: 358 80% 52%;
-  --chart-2: 38 78% 58%;
-  --chart-3: 36 40% 80%;
-  --chart-4: 14 70% 45%;
-  --chart-5: 30 12% 45%;
+  --chart-2: 41 90% 55%;
+  --chart-3: 38 40% 80%;
+  --chart-4: 200 60% 55%;
+  --chart-5: 257 12% 50%;
 }
 
 @layer base {
@@ -173,16 +175,18 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background-image:
-      radial-gradient(1200px 600px at 85% -10%, hsl(358 80% 49% / .10), transparent 60%),
-      radial-gradient(900px 500px at -10% 110%, hsl(38 78% 58% / .05), transparent 60%);
-    background-attachment: fixed;
+    font-size: 16.5px;
+    line-height: 1.6;
   }
 
-  h1, h2, .font-display {
+  h1, h2, h3, .font-display {
     font-family: var(--app-font-serif);
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+    line-height: 1.12;
   }
+  h1, h2 { font-weight: 800; }
+
+  :focus-visible { outline: 2px solid var(--brand-haldi); outline-offset: 2px; }
 
   ::selection {
     background: hsl(358 80% 49% / .35);
@@ -191,7 +195,7 @@
 
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: hsl(24 12% 18%); border-radius: 999px; border: 2px solid hsl(20 12% 5%); }
+  ::-webkit-scrollbar-thumb { background: hsl(255 20% 22%); border-radius: 999px; border: 2px solid hsl(258 22% 9%); }
   ::-webkit-scrollbar-thumb:hover { background: hsl(358 60% 35%); }
 }
 
@@ -207,9 +211,10 @@
   }
   .brush-underline::after {
     content: "";
-    position: absolute; left: 0; bottom: -6px;
-    width: 2.5rem; height: 3px; border-radius: 999px;
-    background: linear-gradient(90deg, var(--brand-red), transparent);
+    position: absolute; left: 0; bottom: -8px;
+    width: 3rem; height: 5px;
+    background: var(--brand-red);
+    clip-path: polygon(0 40%, 100% 0, 96% 100%, 2% 85%);
   }
 }
 
@@ -225,3 +230,46 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
 }
 body { overflow-x: clip; }
+
+/* ---- Comic panel motif: story covers sit in inked panels ---- */
+@layer components {
+  .panel {
+    position: relative;
+    overflow: hidden;
+    border-radius: 6px;
+    border: 2px solid var(--panel-ink);
+    background: hsl(var(--secondary));
+    box-shadow: 0 0 0 1px hsl(255 20% 24%);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .group:hover .panel, .group:focus-visible .panel, .panel-hover:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 0 0 0 1px hsl(255 20% 24%), 5px 5px 0 0 var(--brand-red);
+  }
+  .panel > img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* speech bubble for the hero caption */
+  .bubble {
+    position: relative;
+    background: var(--brand-cream);
+    color: var(--brand-ink);
+    border: 2px solid var(--panel-ink);
+    border-radius: 18px;
+  }
+  .bubble::after {
+    content: "";
+    position: absolute; left: 28px; bottom: -16px;
+    width: 26px; height: 18px;
+    background: var(--brand-cream);
+    border-left: 2px solid var(--panel-ink);
+    border-bottom: 2px solid var(--panel-ink);
+    clip-path: polygon(0 0, 100% 0, 0 100%);
+  }
+
+  /* comic-page gutter grid for the hero */
+  .comic-page { background: var(--panel-ink); padding: 8px; gap: 8px; border-radius: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel, .group:hover .panel { transition: none; transform: none; }
+}

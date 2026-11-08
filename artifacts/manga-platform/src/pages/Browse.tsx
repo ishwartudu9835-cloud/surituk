@@ -199,11 +199,11 @@ export default function Browse() {
                 data-testid={`card-manga-${m.id}`}
               >
                 <Link href={mangaHref(m as never)} className="group block">
-                  <div className="relative aspect-[3/4] rounded-lg overflow-hidden mb-2 border border-white/5">
+                  <div className="panel aspect-[3/4] mb-2">
                     <img
                       src={m.coverImage}
                       alt={m.title}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="absolute top-2 left-2">

@@ -11,8 +11,8 @@ export const resumeHref = (h: HistoryItem) =>
 function ContinueCard({ h }: { h: HistoryItem }) {
   return (
     <Link href={resumeHref(h)} className="group shrink-0 w-36 sm:w-40">
-      <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-border mb-2 bg-card">
-        <img src={h.coverImage} alt={h.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+      <div className="panel aspect-[3/4] mb-2">
+        <img src={h.coverImage} alt={h.title} className="w-full h-full object-cover" loading="lazy" />
         <div className="absolute inset-x-0 bottom-0 h-1.5 bg-black/60"><div className="h-full bg-primary" style={{ width: `${Math.min(100, Math.max(3, h.progress))}%` }} /></div>
       </div>
       <p className="text-sm font-semibold line-clamp-1 group-hover:text-primary transition-colors">{h.title}</p>
@@ -24,8 +24,8 @@ function ContinueCard({ h }: { h: HistoryItem }) {
 export function SeriesTile({ m }: { m: SeriesCard }) {
   return (
     <Link href={mangaHref(m as never)} className="group shrink-0 w-36 sm:w-40">
-      <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-border mb-2 bg-card">
-        <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+      <div className="panel aspect-[3/4] mb-2">
+        <img src={m.coverImage} alt={m.title} className="w-full h-full object-cover" loading="lazy" />
         {m.isMature && <span className="absolute top-2 left-2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary">18+</span>}
       </div>
       <p className="text-sm font-semibold line-clamp-1 group-hover:text-primary transition-colors">{m.title}</p>
