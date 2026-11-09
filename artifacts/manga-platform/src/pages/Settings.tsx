@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "wouter";
-import { Loader2, User, Briefcase } from "lucide-react";
+import { Loader2, User, Briefcase, ShieldAlert } from "lucide-react";
+import { DeleteAccount } from "@/components/DeleteAccount";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,8 +71,9 @@ export default function Settings() {
   const { me, loading } = useAuth();
   const params = useParams<{ token?: string }>();
   const inviteToken = params.token;
-  const initial = inviteToken ? "pro" : new URLSearchParams(window.location.search).get("tab") === "pro" ? "pro" : "profile";
-  const [tab, setTab] = useState<"profile" | "pro">(initial);
+  const q = new URLSearchParams(window.location.search).get("tab");
+  const initial = inviteToken ? "pro" : q === "pro" ? "pro" : q === "account" ? "account" : "profile";
+  const [tab, setTab] = useState<"profile" | "pro" | "account">(initial);
 
   if (loading) return null;
   if (!me) {
@@ -82,12 +84,12 @@ export default function Settings() {
   return (
     <div className="container px-4 py-10 max-w-4xl">
       <h1 className="text-4xl font-bold mb-6">Settings</h1>
-      <div className="flex gap-2 mb-8 border-b border-border">
-        {([["profile", "Profile", <User className="w-4 h-4" />], ["pro", "Professional Account", <Briefcase className="w-4 h-4" />]] as const).map(([v, l, icon]) => (
-          <button key={v} onClick={() => setTab(v)} className={`pb-3 px-3 text-sm font-medium border-b-2 flex items-center gap-2 transition-colors ${tab === v ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{icon}{l}</button>
+      <div className="flex gap-1 sm:gap-2 mb-8 border-b border-border overflow-x-auto no-scrollbar">
+        {([["profile", "Profile", <User className="w-4 h-4" />], ["pro", "Professional Account", <Briefcase className="w-4 h-4" />], ["account", "Account", <ShieldAlert className="w-4 h-4" />]] as const).map(([v, l, icon]) => (
+          <button key={v} onClick={() => setTab(v)} data-testid={`settings-tab-${v}`} className={`shrink-0 pb-3 px-3 text-sm font-medium border-b-2 flex items-center gap-2 transition-colors ${tab === v ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{icon}{l}</button>
         ))}
       </div>
-      {tab === "profile" ? <ProfileSettings /> : <ProAccount inviteToken={inviteToken} />}
+      {tab === "profile" ? <ProfileSettings /> : tab === "pro" ? <ProAccount inviteToken={inviteToken} /> : <DeleteAccount />}
     </div>
   );
 }

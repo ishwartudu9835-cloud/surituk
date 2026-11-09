@@ -104,28 +104,41 @@ router.get("/admin/creators", requireAdmin, async (req, res): Promise<void> => {
   res.json(rows.map(({ c, ownerEmail }) => ({
     id: c.id, name: c.name, type: c.type, status: c.status, avatar: c.avatar, city: c.city, state: c.state,
     isVerified: c.isVerified, isRegisteredStudio: c.isRegisteredStudio, totalManga: c.totalManga, totalViews: c.totalViews,
-    followers: c.followers, ownerEmail, ownerUserId: c.ownerUserId, strikes: c.strikes, slug: c.slug, joinedAt: c.joinedAt.toISOString(),
+    followers: c.followers, ownerEmail, ownerUserId: c.ownerUserId, strikes: c.strikes, hidden: c.hidden, slug: c.slug, joinedAt: c.joinedAt.toISOString(),
   })));
 });
 
 router.patch("/admin/creators/:id", requireAdmin, async (req, res): Promise<void> => {
   const b = req.body ?? {};
   const patch: Partial<typeof creatorsTable.$inferInsert> = {};
+  const reason = typeof b.reason === "string" ? b.reason.trim().slice(0, 500) : "";
   if (b.status !== undefined) {
-    if (!["approved", "suspended", "banned"].includes(b.status)) { res.status(400).json({ error: "Invalid status" }); return; }
+    if (!["approved", "suspended", "banned", "revoked"].includes(b.status)) { res.status(400).json({ error: "Invalid status" }); return; }
     patch.status = b.status;
+    if (b.status === "approved") {
+      const [cur] = await db.select({ approvedAt: creatorsTable.approvedAt }).from(creatorsTable).where(eq(creatorsTable.id, id(req.params.id)));
+      if (!cur?.approvedAt) patch.approvedAt = new Date();
+    }
   }
+  if (typeof b.hidden === "boolean") patch.hidden = b.hidden;
   if (typeof b.isVerified === "boolean") patch.isVerified = b.isVerified;
   if (typeof b.isRegisteredStudio === "boolean") patch.isRegisteredStudio = b.isRegisteredStudio;
   const [c] = await db.update(creatorsTable).set(patch).where(eq(creatorsTable.id, id(req.params.id))).returning();
   if (!c) { res.status(404).json({ error: "Creator not found" }); return; }
+  const why = reason ? ` Reason: ${reason.replace(/[.!]?$/, ".")}` : "";
   if (patch.status && c.ownerUserId) {
-    const msg = patch.status === "suspended" ? "Your creator account has been suspended. Contact support for details."
-      : patch.status === "banned" ? "Your creator account has been banned for violating Surituk's rules."
+    const msg = patch.status === "suspended" ? `Your creator account has been suspended — your stories are hidden and you can't publish.${why} Contact support to appeal.`
+      : patch.status === "banned" ? `Your creator account has been banned for breaking Surituk's rules.${why}`
+      : patch.status === "revoked" ? `Your creator access has been removed by Surituk. You can still read and comment as a reader.${why} Contact support to appeal.`
       : "Your creator account is active again.";
     await notifyUser(c.ownerUserId, msg);
   }
-  await audit(req.user!.id, "creator.update", "creator", c.id, { ...patch, name: c.name });
+  if (typeof patch.hidden === "boolean" && c.ownerUserId) {
+    await notifyUser(c.ownerUserId, patch.hidden
+      ? `Your creator page and stories have been hidden from readers by Surituk.${why} Contact support to appeal.`
+      : "Your creator page and stories are visible to readers again.");
+  }
+  await audit(req.user!.id, "creator.update", "creator", c.id, { ...patch, name: c.name, reason });
   res.json({ ok: true });
 });
 
@@ -145,7 +158,7 @@ router.post("/admin/creators", requireAdmin, async (req, res): Promise<void> => 
     }).returning();
   }
   const code = `${name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) || "creator"}${crypto.randomInt(100, 9999)}`;
-  const [c] = await db.insert(creatorsTable).values({ name, type, status: "approved", avatar: user.avatar, ownerUserId: user.id, referralCode: code }).returning();
+  const [c] = await db.insert(creatorsTable).values({ name, type, status: "approved", approvedAt: new Date(), avatar: user.avatar, ownerUserId: user.id, referralCode: code }).returning();
     c.slug = await assignCreatorSlug(c.id, c.name);
   await db.update(usersTable).set({ creatorId: c.id, role: user.role === "admin" ? "admin" : "creator" }).where(eq(usersTable.id, user.id));
   if (type === "studio") await db.insert(teamMembersTable).values({ creatorId: c.id, userId: user.id, name, email, role: "owner", status: "active" });

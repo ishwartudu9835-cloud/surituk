@@ -68,6 +68,8 @@ export function requireCreator(req: Request, res: Response, next: NextFunction) 
   if (!req.user.creatorId) { res.status(403).json({ error: "Creator account required" }); return; }
   if (req.creatorStatus === "suspended") { res.status(403).json({ error: "Your creator account is suspended. Contact support." }); return; }
   if (req.creatorStatus === "banned") { res.status(403).json({ error: "Your creator account has been banned." }); return; }
+  if (req.creatorStatus === "revoked") { res.status(403).json({ error: "Your creator access has been removed by Surituk. Check your notifications for details." }); return; }
+  if (req.creatorStatus === "deleted") { res.status(403).json({ error: "This creator account was deleted." }); return; }
   next();
 }
 

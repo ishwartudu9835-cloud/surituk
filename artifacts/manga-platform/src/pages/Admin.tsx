@@ -4,7 +4,7 @@ import { Link, Redirect, useParams } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check, X, HelpCircle, Copy, ExternalLink, Loader2, ShieldCheck, BadgeCheck, ChevronDown, ChevronUp, Megaphone, AlertOctagon, Undo2, PauseCircle, Ban,
-  User as UserIcon, LayoutDashboard, Flag, Users as UsersIcon, PenTool, FileCheck2, BookOpen, MessagesSquare, Settings as SettingsIcon, ScrollText, Menu, LogOut,
+  User as UserIcon, Trash2, EyeOff, Eye, UserMinus, LayoutDashboard, Flag, Users as UsersIcon, PenTool, FileCheck2, BookOpen, MessagesSquare, Settings as SettingsIcon, ScrollText, Menu, LogOut,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { card as cardBase, Filters, Empty, Pill, useConfirm, Act } from "@/components/admin/shared";
@@ -13,6 +13,7 @@ import { Reports } from "@/components/admin/Reports";
 import { Users } from "@/components/admin/Users";
 import { Stories, CommunityAdmin } from "@/components/admin/Content";
 import { Notices, SiteSettings } from "@/components/admin/NoticesSettings";
+import { Deletions } from "@/components/admin/Deletions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,7 +27,7 @@ type App = {
   website: string | null; udyamNumber: string | null; gstNumber: string | null; teamMembers: { name: string; email: string; role: string }[];
   reviewNote: string | null; accountEmail: string | null; accountJoinedAt: string | null; daysWaiting: number; createdAt: string; inviteToken: string | null;
 };
-type Creator = { id: number; name: string; slug: string | null; type: string; status: string; avatar: string; city: string | null; state: string | null; isVerified: boolean; isRegisteredStudio: boolean; totalManga: number; totalViews: number; followers: number; ownerEmail: string | null; ownerUserId: number | null; strikes: number; joinedAt: string };
+type Creator = { id: number; name: string; slug: string | null; type: string; status: string; avatar: string; city: string | null; state: string | null; isVerified: boolean; isRegisteredStudio: boolean; totalManga: number; totalViews: number; followers: number; ownerEmail: string | null; ownerUserId: number | null; strikes: number; hidden: boolean; joinedAt: string };
 type Invite = { token: string; url: string; note: string | null; usesLeft: number; expiresAt: string | null; createdAt: string };
 type Log = { id: number; admin: string | null; action: string; targetType: string | null; targetId: number | null; details: unknown; createdAt: string };
 
@@ -131,7 +132,7 @@ function Applications() {
 function Creators() {
   const qc = useQueryClient();
   const { ask, node } = useConfirm();
-  const [status, setStatus] = useState<"all" | "approved" | "pending" | "suspended" | "banned">("all");
+  const [status, setStatus] = useState<"all" | "approved" | "pending" | "suspended" | "revoked" | "banned" | "deleted">("all");
   const [view, setView] = useState<"list" | "add">("list");
   const { data } = useQuery({ queryKey: ["admin-creators", status], queryFn: () => api<Creator[]>(`/admin/creators?status=${status}`) });
   const refresh = () => { qc.invalidateQueries({ queryKey: ["admin-creators"] }); qc.invalidateQueries({ queryKey: ["admin-dashboard"] }); };
@@ -144,7 +145,7 @@ function Creators() {
       <Filters value={view} onChange={setView} options={[["list", "All creators"], ["add", "Add creator & invite links"]]} />
       {view === "add" ? <AddAndInvite /> : (
         <>
-          <Filters value={status} onChange={setStatus} options={[["all", "All"], ["approved", "Active"], ["pending", "Pending"], ["suspended", "Suspended"], ["banned", "Banned"]]} />
+          <Filters value={status} onChange={setStatus} options={[["all", "All"], ["approved", "Active"], ["pending", "Pending"], ["suspended", "Suspended"], ["revoked", "Powers removed"], ["banned", "Banned"], ["deleted", "Deleted"]]} />
           <ul className="space-y-3">
             {data?.map(c => (
               <li key={c.id} className={`${card} p-4 space-y-3`} data-testid={`creator-row-${c.id}`}>
@@ -154,7 +155,10 @@ function Creators() {
                     <Link href={creatorHref(c as never)} className="font-semibold hover:text-primary">{c.name}</Link>
                     <p className="text-xs text-muted-foreground truncate">{c.type === "studio" ? "Studio" : "Creator"}{c.city ? `, ${c.city}` : ""} — {c.ownerEmail ?? "no owner"}</p>
                   </div>
-                  <Pill tone={c.status === "approved" ? "green" : c.status === "pending" ? "muted" : "red"}>{c.status === "approved" ? "active" : c.status}</Pill>
+                  <span className="flex flex-col items-end gap-1">
+                    <Pill tone={c.status === "approved" ? "green" : c.status === "pending" ? "muted" : "red"}>{c.status === "approved" ? "active" : c.status === "revoked" ? "powers removed" : c.status}</Pill>
+                    {c.hidden && <Pill tone="red">hidden</Pill>}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground">{c.totalManga} stories, {c.totalViews.toLocaleString("en-IN")} views, {c.followers} subscribers{c.strikes ? `, ${c.strikes} of 3 strikes` : ""}</p>
                 <div className="flex flex-wrap gap-2">
@@ -163,9 +167,13 @@ function Creators() {
                   <Act onClick={() => ask({ title: `Send a notice to ${c.name}`, reasonLabel: "Message", confirmLabel: "Send", run: async m => { if (m.trim().length < 3) throw new Error("Write a message"); await api("/admin/notices", { body: { target: "creator", creatorId: c.id, message: m } }); } })}><Megaphone className="w-3.5 h-3.5" />Notice</Act>
                   {c.status === "approved" && <Act onClick={() => ask({ title: `Strike ${c.name}?`, body: "3 strikes suspends the account. They get your reason.", reasonLabel: "Reason (required)", confirmLabel: "Give strike", danger: true, run: async r => { if (!r.trim()) throw new Error("Write a reason"); await api(`/admin/creators/${c.id}/strike`, { body: { reason: r } }); refresh(); } })} testid={`strike-${c.id}`}><AlertOctagon className="w-3.5 h-3.5" />Strike</Act>}
                   {!!c.strikes && <Act onClick={() => api(`/admin/creators/${c.id}/clear-strikes`, { body: {} }).then(refresh)}><Undo2 className="w-3.5 h-3.5" />Clear strikes</Act>}
-                  {c.status === "approved" && <Act danger onClick={() => ask({ title: `Suspend ${c.name}?`, body: "Their stories are hidden and they can't publish until you restore them.", confirmLabel: "Suspend", danger: true, run: () => patch(c.id, { status: "suspended" }) })}><PauseCircle className="w-3.5 h-3.5" />Suspend</Act>}
-                  {(c.status === "suspended" || c.status === "banned") && <Act onClick={() => patch(c.id, { status: "approved" })}><Undo2 className="w-3.5 h-3.5" />Restore</Act>}
-                  {c.status !== "banned" && c.status !== "pending" && <Act danger onClick={() => ask({ title: `Ban ${c.name}?`, body: "Permanent. All their stories are hidden.", confirmLabel: "Ban creator", danger: true, run: () => patch(c.id, { status: "banned" }) })}><Ban className="w-3.5 h-3.5" />Ban</Act>}
+                  {c.status !== "deleted" && (c.hidden
+                    ? <Act onClick={() => patch(c.id, { hidden: false })}><Eye className="w-3.5 h-3.5" />Unhide</Act>
+                    : <Act testid={`hide-${c.id}`} onClick={() => ask({ title: `Hide ${c.name}?`, body: "Their creator page and all stories disappear for readers. They can still log in. They get a notice with your reason.", reasonLabel: "Reason (sent to them)", confirmLabel: "Hide creator", danger: true, run: r => patch(c.id, { hidden: true, reason: r }) })}><EyeOff className="w-3.5 h-3.5" />Hide</Act>)}
+                  {c.status === "approved" && <Act danger testid={`revoke-${c.id}`} onClick={() => ask({ title: `Remove ${c.name}'s creator powers?`, body: "They become a normal reader: no Creator Studio, no publishing, no posts. Their stories are hidden. You can restore it later.", reasonLabel: "Reason (sent to them)", confirmLabel: "Remove powers", danger: true, run: r => patch(c.id, { status: "revoked", reason: r }) })}><UserMinus className="w-3.5 h-3.5" />Remove creator powers</Act>}
+                  {c.status === "approved" && <Act danger onClick={() => ask({ title: `Suspend ${c.name}?`, body: "Their stories are hidden and they can't publish until you restore them.", reasonLabel: "Reason (sent to them)", confirmLabel: "Suspend", danger: true, run: r => patch(c.id, { status: "suspended", reason: r }) })}><PauseCircle className="w-3.5 h-3.5" />Suspend</Act>}
+                  {["suspended", "banned", "revoked"].includes(c.status) && <Act onClick={() => patch(c.id, { status: "approved" })}><Undo2 className="w-3.5 h-3.5" />Restore</Act>}
+                  {!["banned", "pending", "deleted"].includes(c.status) && <Act danger onClick={() => ask({ title: `Ban ${c.name}?`, body: "Permanent. All their stories are hidden.", reasonLabel: "Reason (sent to them)", confirmLabel: "Ban creator", danger: true, run: r => patch(c.id, { status: "banned", reason: r }) })}><Ban className="w-3.5 h-3.5" />Ban</Act>}
                   {c.ownerUserId && <Link href={`/admin/users?id=${c.ownerUserId}`} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-border text-xs hover:bg-white/5"><UserIcon className="w-3.5 h-3.5" />Owner account</Link>}
                 </div>
               </li>
@@ -263,6 +271,7 @@ const SECTIONS = [
   { id: "applications", label: "Applications", icon: FileCheck2 },
   { id: "stories", label: "Stories", icon: BookOpen },
   { id: "community", label: "Community", icon: MessagesSquare },
+  { id: "deletions", label: "Deletion requests", icon: Trash2 },
   { id: "notices", label: "Send notice", icon: Megaphone },
   { id: "settings", label: "Site settings", icon: SettingsIcon },
   { id: "audit", label: "Audit log", icon: ScrollText },
@@ -298,7 +307,7 @@ export default function Admin() {
   if (!me) return <Redirect to="/login?next=/admin" />;
   if (!isAdmin) return <div className="min-h-screen flex items-center justify-center text-muted-foreground p-6 text-center">This area is for Surituk admins only. <Link href="/" className="text-primary ml-1">Go home</Link></div>;
 
-  const counts: Record<string, number> = { reports: d?.reports.open ?? 0, applications: d?.creators.pendingApplications ?? 0 };
+  const counts: Record<string, number> = { reports: d?.reports.open ?? 0, applications: d?.creators.pendingApplications ?? 0, deletions: d?.deletions?.scheduled ?? 0 };
   const section = SECTIONS.find(x => x.id === current) ?? SECTIONS[0];
   const brand = (
     <Link href="/admin" className="flex items-center gap-2.5 px-3">
@@ -353,6 +362,7 @@ export default function Admin() {
         {current === "applications" && <Applications />}
         {current === "stories" && <Stories />}
         {current === "community" && <CommunityAdmin />}
+        {current === "deletions" && <Deletions />}
         {current === "notices" && <Notices />}
         {current === "settings" && <SiteSettings />}
         {current === "audit" && <Audit />}

@@ -21,6 +21,7 @@ import proRouter from "./pro";
 import ratingsRouter from "./ratings";
 import reportsRouter from "./reports";
 import adminControlRouter from "./adminControl";
+import deletionRouter from "./deletion";
 
 const router: IRouter = Router();
 
@@ -31,6 +32,7 @@ router.use(proRouter);
 router.use(ratingsRouter);
 router.use(reportsRouter);
 router.use(adminControlRouter);
+router.use(deletionRouter);
 router.use(mangaRouter);
 router.use(chaptersRouter);
 router.use(creatorsRouter);

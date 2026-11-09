@@ -87,6 +87,36 @@ export async function runMigrations() {
       resolved_at timestamptz
     )`,
     `CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status, created_at DESC)`,
+    // --- account deletion + creator hide ---
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS hidden boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS approved_at timestamptz`,
+    `UPDATE creators SET approved_at = joined_at WHERE approved_at IS NULL AND status = 'approved'`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
+    `CREATE TABLE IF NOT EXISTS account_deletions (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL,
+      kind text NOT NULL,
+      creator_id integer,
+      reason text NOT NULL,
+      status text NOT NULL DEFAULT 'scheduled',
+      requested_at timestamptz NOT NULL DEFAULT now(),
+      scheduled_for timestamptz NOT NULL,
+      warned_at timestamptz,
+      completed_at timestamptz,
+      cancelled_at timestamptz
+    )`,
+    `CREATE TABLE IF NOT EXISTS deleted_accounts (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL,
+      email text,
+      display_name text,
+      username text,
+      creator_name text,
+      kind text NOT NULL,
+      reason text,
+      deleted_at timestamptz NOT NULL DEFAULT now(),
+      purge_after timestamptz NOT NULL
+    )`,
     // --- 5-star ratings ---
     `ALTER TABLE manga ADD COLUMN IF NOT EXISTS rating_count integer NOT NULL DEFAULT 0`,
     `CREATE TABLE IF NOT EXISTS manga_ratings (

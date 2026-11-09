@@ -26,6 +26,7 @@ export const usersTable = pgTable("users", {
   /** Banned by an admin: can't log in at all. */
   banned: boolean("banned").notNull().default(false),
   banReason: text("ban_reason"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   referredBy: integer("referred_by"), // creator id whose referral link brought this user
   lastIp: text("last_ip"),
   joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),

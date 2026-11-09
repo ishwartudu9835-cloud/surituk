@@ -89,6 +89,7 @@ export async function approveApplication(app: CreatorApplication, adminUserId: n
     name,
     type: app.type,
     status: "approved",
+    approvedAt: new Date(),
     studioName: isStudio ? app.studioName : null,
     bio: isStudio ? app.studioDescription : null,
     avatar: (isStudio && app.studioLogo) || user.avatar,

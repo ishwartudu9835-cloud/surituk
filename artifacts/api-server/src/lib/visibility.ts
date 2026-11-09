@@ -7,7 +7,7 @@ import { mangaTable, creatorsTable, type User } from "@workspace/db";
  * Queries using this must join creatorsTable.
  */
 export function visibleManga(user?: User | null): SQL {
-  const conds: SQL[] = [eq(mangaTable.isPublished, true), eq(mangaTable.adminHidden, false), eq(creatorsTable.status, "approved")];
+  const conds: SQL[] = [eq(mangaTable.isPublished, true), eq(mangaTable.adminHidden, false), eq(creatorsTable.status, "approved"), eq(creatorsTable.hidden, false)];
   if (!user?.isAdult) conds.push(eq(mangaTable.isMature, false));
   return and(...conds)!;
 }

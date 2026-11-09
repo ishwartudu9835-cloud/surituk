@@ -218,7 +218,9 @@ function Footer() {
               <li><Link href="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
               <li><Link href="/terms" className="hover:text-primary transition-colors">Terms</Link></li>
               <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link></li>
-              <li><Link href="/dmca" className="hover:text-primary transition-colors">DMCA</Link></li>
+              <li><Link href="/guidelines" className="hover:text-primary transition-colors">Community Guidelines</Link></li>
+              <li><Link href="/copyright" className="hover:text-primary transition-colors">Copyright</Link></li>
+              <li><Link href="/grievance" className="hover:text-primary transition-colors">Grievance Officer</Link></li>
             </ul>
           </div>
         </div>
@@ -308,6 +310,9 @@ function Router() {
             <Route path="/terms" component={InfoPage} />
             <Route path="/privacy" component={InfoPage} />
             <Route path="/dmca" component={InfoPage} />
+            <Route path="/copyright" component={InfoPage} />
+            <Route path="/guidelines" component={InfoPage} />
+            <Route path="/grievance" component={InfoPage} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

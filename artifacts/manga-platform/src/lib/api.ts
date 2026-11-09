@@ -95,7 +95,7 @@ export type Me = {
   role: "reader" | "creator" | "admin"; creatorId: number | null;
   isAdult: boolean; favoriteGenres: string[]; uiLanguage: "en" | "hi"; onboarded: boolean;
   creator: {
-    id: number; name: string; type: "individual" | "studio"; status: "pending" | "approved" | "suspended" | "banned";
+    id: number; name: string; type: "individual" | "studio"; status: "pending" | "approved" | "suspended" | "banned" | "revoked" | "deleted";
     studioName: string | null; bio: string | null; avatar: string; banner: string | null; city: string | null; state: string | null;
     isVerified: boolean; instagramUrl: string | null; twitterUrl: string | null; youtubeUrl: string | null; websiteUrl: string | null;
   } | null;

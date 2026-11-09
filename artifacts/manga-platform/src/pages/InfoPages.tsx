@@ -1,98 +1,216 @@
-import { useParams } from "wouter";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
-type InfoSection = { title: string; content: React.ReactNode };
+/**
+ * Policy pages. Written for Indian law as of November 2026:
+ * IT Act 2000 + IT (Intermediary Guidelines and Digital Media Ethics Code) Rules 2021 (as amended),
+ * Digital Personal Data Protection Act 2023 + DPDP Rules 2025, Copyright Act 1957.
+ * Not legal advice — have a lawyer review before relying on it.
+ */
+const UPDATED = "9 November 2026";
 
-const pages: Record<string, { heading: string; intro: string; sections: InfoSection[] }> = {
+type Section = { title: string; body: React.ReactNode };
+type Page = { title: string; intro?: React.ReactNode; sections: Section[] };
+
+function useGrievance() {
+  const { data } = useQuery({ queryKey: ["site-info"], queryFn: () => api<{ banner: string; grievance?: { name: string; email: string } }>("/site-info"), staleTime: 5 * 60_000 });
+  return data?.grievance ?? { name: "", email: "" };
+}
+
+function GrievanceContact() {
+  const g = useGrievance();
+  return g.email
+    ? <span><b>{g.name || "Grievance Officer"}</b>, <a href={`mailto:${g.email}`} className="text-primary underline">{g.email}</a></span>
+    : <span>our Grievance Officer (details on the <Link href="/grievance" className="text-primary underline">Grievance page</Link>)</span>;
+}
+
+const ul = (items: React.ReactNode[]) => <ul className="list-disc pl-5 space-y-1.5">{items.map((x, i) => <li key={i}>{x}</li>)}</ul>;
+
+const PAGES: Record<string, Page> = {
   about: {
-    heading: "About Surituk",
-    intro: "Surituk is a graphic novel and manga platform built for readers, creators, and community — a complete ecosystem for discovering stories, growing audiences, and earning revenue.",
+    title: "About Surituk",
+    intro: "Surituk is a home for graphic novels and manga made in India — in Hindi, English and every Indian language.",
     sections: [
-      { title: "Our Mission", content: "To empower graphic novel and manga creators with fair revenue sharing, transparent analytics, and a passionate global readership. We believe every great story deserves a great audience." },
-      { title: "For Readers", content: "Read graphic novels and manga across every genre. Track your progress, earn reading points, participate in contests, and connect with fellow fans in our community." },
-      { title: "For Creators", content: "Upload your work, build your audience, and earn through AdSense revenue sharing, fan support, and creator bonuses. Our dashboard gives you full visibility into your performance." },
-      { title: "Our Values", content: "Creator first, reader focused, community driven. We build features that serve both sides of the ecosystem equally. No exclusive deals that lock creators in — you own your work." },
+      { title: "For readers", body: "Read stories by Indian creators, follow the artists you love, rate stories, and join the conversation in Community." },
+      { title: "For creators", body: "Publish your series chapter by chapter, build subscribers, talk to your readers with posts and polls, and see how your stories are doing. You keep full ownership of your work." },
+      { title: "Our promise", body: "Original work only. We act quickly on copyright complaints and protect creators from people who copy their work." },
     ],
   },
+
   contact: {
-    heading: "Contact Us",
-    intro: "We're here to help. Reach out through any of the channels below and our team will respond within 48 hours.",
+    title: "Contact",
     sections: [
-      { title: "General Inquiries", content: "Email: hello@surituk.com — For general questions about the platform, features, and partnerships." },
-      { title: "Creator Support", content: "Email: creators@surituk.com — For questions about creator accounts, revenue, uploads, and the Creator Studio." },
-      { title: "Legal & Copyright", content: "Email: legal@surituk.com — For DMCA notices, copyright claims, and legal correspondence." },
-      { title: "Press & Media", content: "Email: press@surituk.com — For media inquiries, press kits, and interview requests." },
+      { title: "Report something on the site", body: <>Use the <b>Report</b> button on any story, chapter, post, comment or profile. It reaches our team directly and you'll get a notification when we act.</> },
+      { title: "Complaints, legal and copyright", body: <>Write to <GrievanceContact />. We acknowledge within 24 hours and resolve within 15 days.</> },
+      { title: "Creator help", body: <>Creators can reach us from Creator Studio or through the Grievance Officer above.</> },
     ],
   },
-  privacy: {
-    heading: "Privacy Policy",
-    intro: "Your privacy is important to us. This policy explains what data we collect, how we use it, and your rights.",
-    sections: [
-      { title: "Data We Collect", content: "We collect account information (email, username), reading activity, and usage data to personalize your experience. Payment data is handled by third-party processors and never stored on our servers." },
-      { title: "How We Use Your Data", content: "To provide and improve the service, personalize recommendations, process payments, send notifications you've opted into, and detect fraud. We never sell your personal data." },
-      { title: "Cookies", content: "We use cookies for authentication, preferences, and analytics. You can control cookies through your browser settings. Essential cookies cannot be disabled as they are required for the service to function." },
-      { title: "Your Rights", content: "You have the right to access, export, or delete your data at any time from your account settings. For requests or questions about your data, contact privacy@surituk.com." },
-    ],
-  },
+
   terms: {
-    heading: "Terms & Conditions",
-    intro: "By using Surituk, you agree to these terms. Please read them carefully.",
+    title: "Terms of Use",
+    intro: <>These terms are an agreement between you and Surituk. By using Surituk you accept them, along with our <Link href="/privacy" className="text-primary underline">Privacy Policy</Link> and <Link href="/guidelines" className="text-primary underline">Community Guidelines</Link>. Surituk is an intermediary under the Information Technology Act, 2000.</>,
     sections: [
-      { title: "Eligibility", content: "You must be at least 13 years old to use Surituk. If you are under 18, you must have parental consent. By creating an account, you confirm you meet these requirements." },
-      { title: "User Conduct", content: "You agree not to upload content you don't own, harass other users, attempt to hack or disrupt the platform, or use automated tools to access the service without permission." },
-      { title: "Creator Agreement", content: "Creators retain full ownership of their work. By uploading to Surituk, you grant us a non-exclusive license to display and distribute your content on the platform. You may remove your content at any time." },
-      { title: "Revenue & Payments", content: "Creator revenue is calculated monthly and paid within 30 days of the end of each period. Surituk takes a 30% platform fee. Detailed revenue policies are in the Creator Revenue Policy." },
+      { title: "Who can use Surituk", body: ul([
+        "You must be 18 or older, or use Surituk with the consent of a parent or lawful guardian who accepts these terms for you.",
+        "Stories marked 18+ are only for adults who confirm they are 18 or older.",
+        "One person, one account. Don't create accounts for someone else or to get around a ban.",
+      ]) },
+      { title: "Your account", body: ul([
+        "Sign in with email or Google. Keep access to your email secure — you're responsible for activity on your account.",
+        "You can delete your account any time from Settings → Account. Deletion happens after a 7-day cooling-off period so you can change your mind.",
+      ]) },
+      { title: "Creator accounts", body: ul([
+        "Creator and studio accounts are reviewed before they can publish.",
+        "You confirm that everything you upload is your own original work, or that you have written permission from the owner.",
+        "You keep the copyright in your work. You give Surituk a non-exclusive, worldwide, royalty-free licence to host, display, resize and promote it on Surituk for as long as it is published here. Unpublish or delete it and the licence ends (except for copies we must keep by law).",
+        "A creator account can be deleted 15 days or more after it was approved. Deleting it removes all its stories, chapters and posts.",
+        "Creator earnings from ads, when the earnings programme is live, follow the Creator Revenue Policy published in Creator Studio.",
+      ]) },
+      { title: "What's not allowed", body: <>Everything listed in our <Link href="/guidelines" className="text-primary underline">Community Guidelines</Link>, including the content barred by Rule 3(1)(b) of the IT Rules, 2021. We may remove content, restrict features, remove creator access, suspend or ban accounts that break these rules — usually with a notice explaining why.</> },
+      { title: "Copyright complaints", body: <>See our <Link href="/copyright" className="text-primary underline">Copyright Policy</Link>. Repeat infringers lose their creator account (3 strikes).</> },
+      { title: "Disclaimers", body: "Surituk is provided as it is. Views in stories and posts belong to their creators, not Surituk. To the extent the law allows, we aren't liable for indirect losses from using the service." },
+      { title: "Complaints and disputes", body: <>Contact <GrievanceContact /> first. Indian law applies; courts in India have jurisdiction.</> },
+      { title: "Changes", body: "If we change these terms in a way that matters, we'll tell you on the site before the change applies." },
     ],
   },
-  dmca: {
-    heading: "DMCA Policy",
-    intro: "Surituk respects intellectual property rights and expects our users to do the same.",
+
+  privacy: {
+    title: "Privacy Policy",
+    intro: "This explains what personal data we collect, why, and the rights you have under the Digital Personal Data Protection Act, 2023.",
     sections: [
-      { title: "Filing a Notice", content: "If you believe your copyrighted work has been uploaded without permission, send a DMCA notice to legal@surituk.com with: your contact information, identification of the copyrighted work, identification of the infringing material, and a statement of good faith belief." },
-      { title: "Counter-Notification", content: "If you believe your content was removed in error, you may file a counter-notification. We will restore the content within 10-14 business days unless the original complainant files for a court order." },
-      { title: "Repeat Infringers", content: "Accounts with multiple confirmed copyright violations will be terminated under our repeat infringer policy. We maintain detailed logs of all DMCA notices and actions taken." },
+      { title: "What we collect", body: ul([
+        "Account: email, name, username, profile photo, and Google ID if you sign in with Google.",
+        "Profile choices: favourite genres, language, and whether you confirmed you are 18 or older.",
+        "Activity: stories you read, bookmarks, reading progress, ratings, likes, votes, comments and posts.",
+        "Creators: details in your application (legal name, pen or studio name, city, state, social links, mobile number).",
+        "Technical: IP address and basic logs, used for security and to stop fake accounts.",
+      ]) },
+      { title: "Why we use it", body: ul([
+        "To run your account and show you stories, progress and recommendations.",
+        "To review creator applications and pay creators when earnings are live.",
+        "To keep Surituk safe: stop spam and fake accounts, handle reports, and meet legal requests.",
+        "We don't sell your personal data.",
+      ]) },
+      { title: "Who we share it with", body: "Service providers that help us run Surituk (hosting, database, file storage, email delivery, Google sign-in and, when enabled, Google AdSense). They may only use it to provide their service. We share data with authorities only when Indian law requires it." },
+      { title: "Your rights", body: ul([
+        "See and correct your profile in Settings.",
+        "Withdraw consent and delete your account in Settings → Account.",
+        "Raise a grievance with our Grievance Officer, and if you're not satisfied, complain to the Data Protection Board of India.",
+        "Nominate someone to exercise these rights for you in case of death or incapacity — write to the Grievance Officer.",
+      ]) },
+      { title: "Deleting your account", body: ul([
+        "Ask in Settings → Account and tell us why. Deletion runs after a 7-day cooling-off period; we remind you 48 hours before. You can cancel until then.",
+        "Your profile, library, history, likes, votes and ratings are erased. Comments stay as “Deleted user”.",
+        "We keep basic sign-up details for 180 days after deletion, as Rule 3(1)(h) of the IT Rules, 2021 requires, then erase them. Security logs are kept for up to one year where the DPDP Rules require it.",
+        "A deletion may be put on hold if there's an open legal or copyright complaint about the account.",
+      ]) },
+      { title: "Children", body: "Users under 18 need a parent or guardian's consent. We don't show 18+ stories to anyone who hasn't confirmed they're an adult, and we don't target ads at children." },
+      { title: "Cookies and storage", body: "We store a sign-in token in your browser so you stay logged in. If ads are enabled, Google may use cookies to show ads; you can manage this in your Google ad settings." },
+      { title: "Security", body: "Data is sent over HTTPS, access is limited to the team, and admin actions are recorded in an audit log. If a breach affects you, we'll tell you and the Data Protection Board as the law requires." },
+      { title: "Contact", body: <>Questions or requests: <GrievanceContact />.</> },
+    ],
+  },
+
+  guidelines: {
+    title: "Community Guidelines",
+    intro: "Surituk is for original Indian stories and the people who love them. These rules apply to stories, chapters, posts, comments and profiles.",
+    sections: [
+      { title: "Not allowed on Surituk", body: ul([
+        "Work that belongs to someone else — copied manga, comics, art or translations without permission.",
+        "Sexual content involving anyone under 18, in any form. We report this to authorities.",
+        "Sexual content that isn't marked 18+, or that shows real people without consent.",
+        "Hate, harassment, bullying or threats against people or groups, including on the basis of religion, caste, gender, region or language.",
+        "Content that encourages violence, self-harm, or crime; content that threatens India's unity, security or public order.",
+        "Impersonation, fake news, scams, misleading links, or malware.",
+        "Spam: repeated junk comments, fake accounts, or buying likes, votes or ratings.",
+        "Anything else that's illegal in India.",
+      ]) },
+      { title: "18+ stories", body: "Creators must mark mature stories as 18+. They're only shown to adults who confirm their age. Admins may mark a story 18+ if the creator didn't." },
+      { title: "Posts and comments", body: ul([
+        "Only approved creators start posts. Discussion and Review posts allow comments; Announcements allow likes only; Polls allow one vote per person.",
+        "To comment, like, vote or rate you need a verified email and a finished profile.",
+      ]) },
+      { title: "What happens if rules are broken", body: ul([
+        "Content can be unlisted or deleted.",
+        "Readers can be restricted (no comments, likes, votes or ratings) or banned.",
+        "Creators get strikes. 3 strikes suspends the creator account. Serious cases lose creator access, or are hidden or banned straight away.",
+        "You get a notice with the reason. To appeal, write to the Grievance Officer.",
+      ]) },
+      { title: "Report it", body: "Use the Report button. We review reports and act on illegal content quickly — within 24 hours for intimate images shared without consent." },
+    ],
+  },
+
+  copyright: {
+    title: "Copyright Policy",
+    intro: "Surituk respects creators' rights under the Copyright Act, 1957. If your work was uploaded without permission, we'll take it down.",
+    sections: [
+      { title: "How to file a complaint", body: <>Use <b>Report → Copyright</b> on the story, chapter or post, or email <GrievanceContact />. Include:{ul([
+        "Your name and contact email (and your authority, if you act for the owner).",
+        "The original work, with a link if it's online.",
+        "The page on Surituk that copies it.",
+        "A statement that you believe in good faith the use isn't authorised, and that your information is accurate.",
+      ])}</> },
+      { title: "What we do", body: ul([
+        "We acknowledge within 24 hours and decide within 15 days, usually much faster.",
+        "If the claim looks valid, we unlist or remove the content and give the creator a strike.",
+        "We keep a record of removed content for 180 days, as the IT Rules require.",
+      ]) },
+      { title: "If your work was removed", body: "If you believe it was a mistake — you own it or have a licence — reply to the notice or write to the Grievance Officer with proof. We'll review it, and may restore the content unless the claimant shows a court order." },
+      { title: "Repeat infringers", body: "3 confirmed copyright strikes suspends a creator account. Deliberate or large-scale copying is banned straight away." },
+    ],
+  },
+
+  grievance: {
+    title: "Grievance Officer",
+    intro: "As required by the Information Technology (Intermediary Guidelines and Digital Media Ethics Code) Rules, 2021 and the Digital Personal Data Protection Act, 2023.",
+    sections: [
+      { title: "Contact", body: <GrievanceContact /> },
+      { title: "What you can raise", body: "Complaints about content on Surituk, copyright, privacy and your personal data, account actions (restrictions, strikes, bans, removed access), or anything that breaks our Terms." },
+      { title: "Timelines", body: ul([
+        "We acknowledge your complaint within 24 hours and resolve it within 15 days.",
+        "Requests to remove content showing someone's private areas, nudity, sexual acts or impersonation in morphed images are acted on within 24 hours.",
+      ]) },
+      { title: "Not satisfied?", body: <>You can appeal to the Grievance Appellate Committee within 30 days of our decision, at <a href="https://gac.gov.in" target="_blank" rel="noopener noreferrer" className="text-primary underline">gac.gov.in</a>. For personal-data complaints you can also approach the Data Protection Board of India.</> },
     ],
   },
 };
+PAGES.dmca = PAGES.copyright;
 
 export default function InfoPage() {
-  const params = useParams<{ page?: string }>();
   const pageName = window.location.pathname.split("/").pop() || "about";
-  const page = pages[pageName];
-
+  const page = PAGES[pageName];
   if (!page) {
     return (
-      <div className="container px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold mb-4">Page Not Found</h1>
-        <Link href="/" className="text-primary hover:underline">Return Home</Link>
+      <div className="container px-4 py-20 text-center">
+        <h1 className="text-3xl font-bold mb-4">Page not found</h1>
+        <Link href="/" className="text-primary hover:underline">Go home</Link>
       </div>
     );
   }
-
+  const legal = ["terms", "privacy", "guidelines", "copyright", "dmca", "grievance"].includes(pageName);
   return (
-    <div className="container px-4 py-12 max-w-3xl">
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-4xl font-bold mb-4">{page.heading}</h1>
-        <p className="text-muted-foreground text-lg leading-relaxed mb-10 pb-8 border-b border-white/10">{page.intro}</p>
-        <div className="space-y-8">
-          {page.sections.map((section, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-            >
-              <h2 className="text-xl font-semibold mb-3">{section.title}</h2>
-              <p className="text-muted-foreground leading-relaxed">{section.content}</p>
-            </motion.div>
-          ))}
-        </div>
-        <div className="mt-12 pt-8 border-t border-white/10 text-sm text-muted-foreground">
-          Last updated: November 2026 &nbsp;·&nbsp;
-          <Link href="/contact" className="text-primary hover:underline">Contact Us</Link>
-        </div>
-      </motion.div>
+    <div className="container px-4 py-10 md:py-16 max-w-3xl">
+      <h1 className="text-4xl md:text-5xl font-bold mb-3">{page.title}</h1>
+      {legal && <p className="text-sm text-muted-foreground mb-6">Last updated {UPDATED}</p>}
+      {page.intro && <p className="text-lg text-foreground/80 mb-10 leading-relaxed">{page.intro}</p>}
+      <div className="space-y-8">
+        {page.sections.map(s => (
+          <section key={s.title}>
+            <h2 className="text-xl md:text-2xl font-bold mb-2.5">{s.title}</h2>
+            <div className="text-foreground/75 leading-relaxed">{s.body}</div>
+          </section>
+        ))}
+      </div>
+      {legal && (
+        <nav className="mt-14 pt-6 border-t border-border flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground" aria-label="Policies">
+          <Link href="/terms" className="hover:text-foreground">Terms</Link>
+          <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
+          <Link href="/guidelines" className="hover:text-foreground">Community Guidelines</Link>
+          <Link href="/copyright" className="hover:text-foreground">Copyright</Link>
+          <Link href="/grievance" className="hover:text-foreground">Grievance Officer</Link>
+        </nav>
+      )}
     </div>
   );
 }

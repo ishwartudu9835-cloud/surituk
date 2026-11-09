@@ -625,10 +625,10 @@ export default function CreatorDashboard() {
       <Button asChild><Link href="/settings?tab=pro">Apply for Creator</Link></Button>
     </div>
   );
-  if (status === "suspended" || status === "banned") return (
+  if (status === "suspended" || status === "banned" || status === "revoked") return (
     <div className="container px-4 py-20 text-center max-w-lg">
-      <h1 className="text-3xl font-bold mb-3">Creator account {status}</h1>
-      <p className="text-muted-foreground">Contact support@surituk.com if you think this is a mistake.</p>
+      <h1 className="text-3xl font-bold mb-3">{status === "revoked" ? "Creator access removed" : `Creator account ${status}`}</h1>
+      <p className="text-muted-foreground">Check your notifications for the reason. Contact the <Link href="/grievance" className="text-primary underline">Grievance Officer</Link> if you think this is a mistake.</p>
     </div>
   );
   const visibleItems = sidebarItems.filter(i => (i.id !== "team" || me.creator?.type === "studio") && (approved || !["store", "sales", "overview"].includes(i.id)));

@@ -1,3 +1,4 @@
+import { startDeletionWorker } from "./lib/deletion";
 import { s3Enabled } from "./lib/config";
 import app from "./app";
 import { logger } from "./lib/logger";
@@ -22,5 +23,5 @@ app.listen(port, (err) => {
   if (!s3Enabled && process.env.NODE_ENV === "production") {
   console.warn("⚠️  STORAGE: no S3/Neon bucket configured — uploaded photos are saved on local disk and will be LOST on the next deploy.");
 }
-void runMigrations().then(ensureDefaultGenres).then(backfillSlugs).catch((e) => console.error("startup tasks failed", e));
+void runMigrations().then(ensureDefaultGenres).then(backfillSlugs).then(() => startDeletionWorker()).catch((e) => console.error("startup tasks failed", e));
 });

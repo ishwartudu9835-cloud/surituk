@@ -29,6 +29,10 @@ export const creatorsTable = pgTable("creators", {
   isVerified: boolean("is_verified").notNull().default(false),
   /** Rule-break warnings from admins. 3 strikes suspends the account. */
   strikes: integer("strikes").notNull().default(0),
+  /** Hidden by an admin: creator page and all stories are invisible to readers. */
+  hidden: boolean("hidden").notNull().default(false),
+  /** When the creator account was approved (deletion is allowed 15 days after this). */
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
   upiId: text("upi_id"),
   payoutName: text("payout_name"),
   rank: integer("rank"),

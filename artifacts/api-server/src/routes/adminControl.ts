@@ -2,11 +2,12 @@ import { Router, type IRouter, type Request } from "express";
 import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import {
   db, usersTable, creatorsTable, mangaTable, chaptersTable, communityPostsTable, communityRepliesTable,
-  reportsTable, notificationsTable, creatorApplicationsTable, readingHistoryTable, bookmarksTable, genresTable,
+  reportsTable, notificationsTable, accountDeletionsTable, creatorApplicationsTable, readingHistoryTable, bookmarksTable, genresTable,
 } from "@workspace/db";
 import { requireAdmin } from "../lib/auth";
 import { audit, getSetting, setSetting } from "../lib/creatorProgram";
 import { storageSelfTest } from "../lib/storage";
+import { deleteStory } from "../lib/deletion";
 
 /**
  * Admin control centre: dashboard, users, stories, community, reports, notices, site settings.
@@ -47,6 +48,7 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res): Promise<void> =>
     count(db.select({ n }).from(mangaTable).where(eq(mangaTable.isPublished, false))),
     count(db.select({ n }).from(chaptersTable)),
   ]);
+  const deletionsScheduled = await count(db.select({ n }).from(accountDeletionsTable).where(eq(accountDeletionsTable.status, "scheduled")));
   const [openReports, copyrightReports, posts, commentsToday] = await Promise.all([
     count(db.select({ n }).from(reportsTable).where(eq(reportsTable.status, "open"))),
     count(db.select({ n }).from(reportsTable).where(and(eq(reportsTable.status, "open"), eq(reportsTable.reason, "copyright")))),
@@ -65,6 +67,7 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res): Promise<void> =>
     creators: { approved: creators, suspended, pendingApplications: pendingApps },
     content: { stories, hiddenStories, drafts, chapters, posts, commentsToday },
     reports: { open: openReports, copyright: copyrightReports },
+    deletions: { scheduled: deletionsScheduled },
     signupsByDay: (signupsByDay as unknown as { rows: { day: string; n: number }[] }).rows ?? signupsByDay,
     recentUsers: recentUsers.map(u => ({ ...u, joinedAt: iso(u.joinedAt) })),
     storage: await storageSelfTest(),
@@ -72,6 +75,8 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res): Promise<void> =>
       newCreatorMode: await getSetting("new_creator_mode", "manual"),
       signupsOpen: (await getSetting("signups_open", "true")) === "true",
       siteBanner: await getSetting("site_banner", ""),
+      grievanceName: await getSetting("grievance_name", ""),
+      grievanceEmail: await getSetting("grievance_email", ""),
     },
   });
 });
@@ -243,19 +248,8 @@ router.patch("/admin/stories/:id", requireAdmin, async (req, res): Promise<void>
 
 router.delete("/admin/stories/:id", requireAdmin, async (req, res): Promise<void> => {
   const id = num(req.params.id);
-  const [m] = await db.select().from(mangaTable).where(eq(mangaTable.id, id));
+  const m = await deleteStory(id);
   if (!m) { res.status(404).json({ error: "Story not found" }); return; }
-  await db.transaction(async tx => {
-    await tx.delete(readingHistoryTable).where(eq(readingHistoryTable.mangaId, id));
-    await tx.delete(bookmarksTable).where(eq(bookmarksTable.mangaId, id));
-    await tx.delete(chaptersTable).where(eq(chaptersTable.mangaId, id));
-    await tx.update(communityPostsTable).set({ relatedMangaId: null }).where(eq(communityPostsTable.relatedMangaId, id));
-    await tx.delete(mangaTable).where(eq(mangaTable.id, id));
-    if (m.isPublished) {
-      await tx.update(creatorsTable).set({ totalManga: sql`greatest(${creatorsTable.totalManga} - 1, 0)` }).where(eq(creatorsTable.id, m.creatorId));
-      await tx.update(genresTable).set({ mangaCount: sql`greatest(${genresTable.mangaCount} - 1, 0)` }).where(eq(genresTable.name, m.genre));
-    }
-  });
   const [c] = await db.select({ ownerUserId: creatorsTable.ownerUserId }).from(creatorsTable).where(eq(creatorsTable.id, m.creatorId));
   if (c?.ownerUserId) await notice([c.ownerUserId], `"${m.title}" was removed by Surituk for breaking the rules.`);
   await audit(req.user!.id, "story.delete", "manga", id, { title: m.title });
@@ -402,6 +396,12 @@ router.patch("/admin/site-settings", requireAdmin, async (req: Request, res): Pr
     await setSetting("new_creator_mode", b.newCreatorMode); changed.newCreatorMode = b.newCreatorMode;
   }
   if (typeof b.signupsOpen === "boolean") { await setSetting("signups_open", String(b.signupsOpen)); changed.signupsOpen = String(b.signupsOpen); }
+  if (typeof b.grievanceName === "string") { await setSetting("grievance_name", b.grievanceName.trim().slice(0, 120)); changed.grievanceName = b.grievanceName.trim(); }
+  if (typeof b.grievanceEmail === "string") {
+    const e = b.grievanceEmail.trim().slice(0, 200);
+    if (e && !/^\S+@\S+\.\S+$/.test(e)) { res.status(400).json({ error: "Enter a valid grievance email" }); return; }
+    await setSetting("grievance_email", e); changed.grievanceEmail = e;
+  }
   if (typeof b.siteBanner === "string") { await setSetting("site_banner", b.siteBanner.trim().slice(0, 300)); changed.siteBanner = b.siteBanner.trim().slice(0, 300); }
   await audit(req.user!.id, "settings.update", "setting", undefined, changed);
   res.json({ ok: true });
@@ -409,7 +409,10 @@ router.patch("/admin/site-settings", requireAdmin, async (req: Request, res): Pr
 
 /** Public: banner shown at the top of every page (set by admins). */
 router.get("/site-info", async (_req, res): Promise<void> => {
-  res.json({ banner: await getSetting("site_banner", "") });
+  res.json({
+    banner: await getSetting("site_banner", ""),
+    grievance: { name: await getSetting("grievance_name", ""), email: await getSetting("grievance_email", "") },
+  });
 });
 
 export default router;

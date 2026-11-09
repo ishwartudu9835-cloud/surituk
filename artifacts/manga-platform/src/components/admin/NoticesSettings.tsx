@@ -76,6 +76,10 @@ export function SiteSettings() {
   const qc = useQueryClient();
   const { data: d } = useDashboard();
   const [banner, setBanner] = useState("");
+  const [gName, setGName] = useState("");
+  const [gEmail, setGEmail] = useState("");
+  const [gErr, setGErr] = useState("");
+  useEffect(() => { if (d) { setGName(d.settings.grievanceName); setGEmail(d.settings.grievanceEmail); } }, [d?.settings.grievanceName, d?.settings.grievanceEmail]); // eslint-disable-line react-hooks/exhaustive-deps
   const [saved, setSaved] = useState("");
   useEffect(() => { if (d) setBanner(d.settings.siteBanner); }, [d?.settings.siteBanner]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -100,6 +104,16 @@ export function SiteSettings() {
           {d.storage.error && <p className="text-xs text-muted-foreground mt-1 font-mono break-all">{d.storage.error}</p>}
         </div>
       ) : <p className="text-sm text-emerald-300 flex items-center gap-2"><CheckCircle className="w-4 h-4" />Photo storage is working ({d.storage.mode}).</p>}
+
+      <section className={`${card} p-4 sm:p-5 space-y-3`}>
+        <div><h3 className="text-base">Grievance Officer</h3><p className="text-sm text-muted-foreground">Indian IT Rules require a named Grievance Officer whose contact is shown on the site. Complaints must be acknowledged within 24 hours and resolved within 15 days. Shown on the Grievance page and in the footer.</p></div>
+        <div className="grid sm:grid-cols-2 gap-2">
+          <Input value={gName} onChange={e => setGName(e.target.value)} placeholder="Full name" data-testid="grievance-name" />
+          <Input value={gEmail} onChange={e => setGEmail(e.target.value)} placeholder="grievance@yourdomain.com" type="email" data-testid="grievance-email" />
+        </div>
+        {gErr && <p className="text-sm text-red-400">{gErr}</p>}
+        <Button onClick={() => { setGErr(""); save({ grievanceName: gName, grievanceEmail: gEmail }, "Grievance Officer saved").catch(e => setGErr((e as Error).message)); }} data-testid="grievance-save">Save</Button>
+      </section>
 
       <section className={`${card} p-4 sm:p-5 space-y-3`}>
         <div><h3 className="text-base">New creators</h3><p className="text-sm text-muted-foreground">Manual: you review every application. Auto: they're approved straight away.</p></div>

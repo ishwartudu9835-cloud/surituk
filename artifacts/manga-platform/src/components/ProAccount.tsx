@@ -240,8 +240,8 @@ export function ProAccount({ inviteToken }: { inviteToken?: string }) {
       </div>
     );
   }
-  if (c?.status === "suspended" || c?.status === "banned") {
-    return <div className={`${card} border-red-500/40`}><XCircle className="w-8 h-8 text-red-400 mb-2" /><h3 className="font-bold">Creator account {c.status}</h3><p className="text-sm text-muted-foreground">Contact support@surituk.com if you think this is a mistake.</p></div>;
+  if (c?.status === "suspended" || c?.status === "banned" || c?.status === "revoked") {
+    return <div className={`${card} border-red-500/40`}><XCircle className="w-8 h-8 text-red-400 mb-2" /><h3 className="font-bold">{c.status === "revoked" ? "Creator access removed" : `Creator account ${c.status}`}</h3><p className="text-sm text-muted-foreground">Check your notifications for the reason. Contact the <Link href="/grievance" className="text-primary underline">Grievance Officer</Link> if you think this is a mistake.</p></div>;
   }
 
   if (app && (app.status === "pending" || (app.status === "more_info" && !editing))) {
