@@ -149,6 +149,7 @@ router.patch("/studio/chapters/:id", requireCreator, async (req, res): Promise<v
     const appendOnly = b.pages.length >= old.length && old.every((p: string, i: number) => b.pages[i] === p);
     if (!appendOnly && !hasAccess(req, "manager")) { res.status(403).json({ error: "Only the owner or a manager can delete or reorder pages." }); return; }
     patch.pages = b.pages;
+    patch.pagesUpdatedAt = new Date();
   }
   const [updated] = await db.update(chaptersTable).set(patch).where(eq(chaptersTable.id, ch.id)).returning();
   await db.update(mangaTable).set({ updatedAt: new Date() }).where(eq(mangaTable.id, ch.mangaId));

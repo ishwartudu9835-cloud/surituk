@@ -29,6 +29,7 @@ export default function ChapterReader() {
   });
 
   const seriesSlug = (chapter as { mangaSlug?: string | null } | undefined)?.mangaSlug;
+  const stampName = (chapter as { creatorName?: string | null } | undefined)?.creatorName ?? "Surituk";
   useCanonicalPath(mangaId, seriesSlug, k => `/manga/${k}/chapter/${chapterId}`);
 
   const currentIndex = chapters?.findIndex(c => c.id === cId) ?? -1;
@@ -114,19 +115,35 @@ export default function ChapterReader() {
 
       {/* Pages */}
       <div
-        className="flex flex-col items-center cursor-pointer"
+        className="flex flex-col items-center cursor-pointer select-none"
         onClick={() => setShowNav(v => !v)}
+        onContextMenu={e => e.preventDefault()}
+        onDragStart={e => e.preventDefault()}
+        style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
       >
         {pages.map((page, i) => (
-          <img
-            key={i}
-            src={page}
-            alt={`Page ${i + 1}`}
-            className="w-full max-w-2xl block"
-            loading="lazy"
-            data-testid={`img-page-${i + 1}`}
-            data-page-index={i}
-          />
+          <div key={i} className="relative w-full max-w-2xl">
+            <img
+              src={page}
+              alt={`Page ${i + 1}`}
+              className="w-full block pointer-events-none"
+              loading="lazy"
+              draggable={false}
+              data-testid={`img-page-${i + 1}`}
+              data-page-index={i}
+            />
+            {/* Page stamp: logo + creator name, in a different corner on each page. Hard to crop out of screenshots. */}
+            <span
+              className={`absolute ${STAMP_SPOTS[i % STAMP_SPOTS.length]} flex items-center gap-1 rounded-full bg-black/45 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-white/85 backdrop-blur-[2px] pointer-events-none`}
+              aria-hidden
+              data-testid={`stamp-${i + 1}`}
+            >
+              <img src={`${import.meta.env.BASE_URL}surituk-mark.svg`} alt="" className="w-3 h-3" draggable={false} />
+              {stampName} · surituk
+            </span>
+            {/* Transparent layer so long-press / right-click "Save image" doesn't reach the picture. */}
+            <span className="absolute inset-0" aria-hidden />
+          </div>
         ))}
       </div>
 
@@ -185,3 +202,6 @@ export default function ChapterReader() {
     </div>
   );
 }
+
+/** Where the stamp sits on each page, in turn. */
+const STAMP_SPOTS = ["bottom-2 right-2", "top-2 left-2", "bottom-2 left-2", "top-2 right-2", "bottom-1/3 right-2"];

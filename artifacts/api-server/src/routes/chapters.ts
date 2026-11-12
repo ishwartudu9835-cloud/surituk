@@ -92,6 +92,8 @@ router.post("/manga/:mangaId/chapters", requireCreator, async (req, res): Promis
     chapterNumber,
     title,
     needsReview,
+    uploadedBy: req.user!.id,
+    pagesUpdatedAt: new Date(),
     pages: pages ?? [],
     isScheduled: !!scheduledAt,
     scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
@@ -127,6 +129,7 @@ router.get("/manga/:mangaId/chapters/:chapterId", async (req, res): Promise<void
       mangaId: chaptersTable.mangaId,
       mangaTitle: mangaTable.title,
       mangaSlug: mangaTable.slug,
+      creatorName: creatorsTable.name,
       chapterNumber: chaptersTable.chapterNumber,
       title: chaptersTable.title,
       pages: chaptersTable.pages,
@@ -137,6 +140,7 @@ router.get("/manga/:mangaId/chapters/:chapterId", async (req, res): Promise<void
     })
     .from(chaptersTable)
     .leftJoin(mangaTable, eq(chaptersTable.mangaId, mangaTable.id))
+    .leftJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id))
     .where(eq(chaptersTable.id, chapterId));
 
   if (!row) { res.status(404).json({ error: "Chapter not found" }); return; }

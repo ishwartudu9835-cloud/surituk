@@ -100,6 +100,8 @@ export async function runMigrations() {
     )`,
     `ALTER TABLE creators ADD COLUMN IF NOT EXISTS theme_color text`,
     `ALTER TABLE chapters ADD COLUMN IF NOT EXISTS needs_review boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE chapters ADD COLUMN IF NOT EXISTS uploaded_by integer`,
+    `ALTER TABLE chapters ADD COLUMN IF NOT EXISTS pages_updated_at timestamptz`,
     `CREATE TABLE IF NOT EXISTS manga_likes (
       manga_id integer NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
       user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,

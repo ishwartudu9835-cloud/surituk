@@ -14,6 +14,9 @@ export const chaptersTable = pgTable("chapters", {
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
   /** A new creator's first chapters wait in the admin review list (they stay live meanwhile). */
   needsReview: boolean("needs_review").notNull().default(false),
+  /** Proof of authorship: who uploaded it, and when the pages last changed. createdAt is the first upload time. */
+  uploadedBy: integer("uploaded_by"),
+  pagesUpdatedAt: timestamp("pages_updated_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

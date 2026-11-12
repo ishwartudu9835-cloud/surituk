@@ -231,7 +231,7 @@ export function ManageSeries({ seriesId, onBack }: { seriesId: number; onBack: (
                 <img src={ch.pages[0]} alt="" className="w-10 h-14 object-cover rounded border border-border bg-secondary" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">Chapter {ch.chapterNumber}: {ch.title}</p>
-                  <p className="text-xs text-muted-foreground">{ch.pages.length} pages · {new Date(ch.createdAt).toLocaleDateString("en-IN")}</p>
+                  <p className="text-xs text-muted-foreground">{ch.pages.length} pages — uploaded {new Date(ch.createdAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => setEditing(ch)}><Pencil className="w-4 h-4 mr-1.5" /> Edit pages</Button>
                 {canDo(me, "manager") && <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={() => deleteChapter(ch)} aria-label="Delete chapter"><Trash2 className="w-4 h-4" /></Button>}
