@@ -7,7 +7,7 @@ import {
 import { requireAdmin } from "../lib/auth";
 import { audit, getSetting, setSetting } from "../lib/creatorProgram";
 import { storageSelfTest } from "../lib/storage";
-import { deleteStory } from "../lib/deletion";
+import { deleteStory, runAccountDeletion, runCreatorDeletion } from "../lib/deletion";
 import { blockedTitles } from "../lib/piracy";
 
 /**
@@ -121,7 +121,10 @@ router.get("/admin/users/:id", requireAdmin, async (req, res): Promise<void> => 
     ...(u.creatorId ? [and(eq(reportsTable.targetType, "creator"), eq(reportsTable.targetId, u.creatorId))] : []),
   )));
   const reportsMade = await count(db.select({ n }).from(reportsTable).where(eq(reportsTable.reporterId, id)));
+  const owned = await db.select({ id: creatorsTable.id, name: creatorsTable.name, type: creatorsTable.type, totalManga: creatorsTable.totalManga })
+    .from(creatorsTable).where(and(eq(creatorsTable.ownerUserId, id), sql`${creatorsTable.status} <> 'deleted'`));
   res.json({
+    ownedCreators: owned, deletedAt: iso(u.deletedAt),
     id: u.id, displayName: u.displayName, username: u.username, email: u.email, avatar: u.avatar, bio: u.bio, role: u.role,
     isAdult: u.isAdult, onboarded: u.onboarded,
     blocked: u.blocked, banned: u.banned, banReason: u.banReason, points: u.points, joinedAt: iso(u.joinedAt),
@@ -131,6 +134,18 @@ router.get("/admin/users/:id", requireAdmin, async (req, res): Promise<void> => 
   });
 });
 
+/** Delete one creator ID / studio right now: its stories, chapters, posts, team and subscribers. The owner stays a reader. */
+router.post("/admin/creators/:id/delete", requireAdmin, async (req, res): Promise<void> => {
+  const id = num(req.params.id);
+  const reason = String(req.body?.reason ?? "").trim().slice(0, 500);
+  if (reason.length < 3) { res.status(400).json({ error: "Write a reason" }); return; }
+  const [c] = await db.select().from(creatorsTable).where(eq(creatorsTable.id, id));
+  if (!c || c.status === "deleted") { res.status(404).json({ error: "Creator not found" }); return; }
+  await audit(req.user!.id, "creator.delete", "creator", id, { name: c.name, reason });
+  await runCreatorDeletion(id, reason, req.user!.id, true);
+  res.json({ ok: true });
+});
+
 router.post("/admin/users/:id/action", requireAdmin, async (req, res): Promise<void> => {
   const id = num(req.params.id);
   const action = String(req.body?.action ?? "");
@@ -138,8 +153,9 @@ router.post("/admin/users/:id/action", requireAdmin, async (req, res): Promise<v
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   if (!u) { res.status(404).json({ error: "User not found" }); return; }
   const self = req.user!.id === id;
-  if (self && ["restrict", "ban", "remove_admin"].includes(action)) { res.status(400).json({ error: "You can't do that to your own account" }); return; }
-  if (u.role === "admin" && ["restrict", "ban"].includes(action)) { res.status(400).json({ error: "Remove admin rights first" }); return; }
+  if (self && ["restrict", "ban", "remove_admin", "delete_account"].includes(action)) { res.status(400).json({ error: "You can't do that to your own account" }); return; }
+  if (u.deletedAt) { res.status(400).json({ error: "This account is already deleted" }); return; }
+  if (u.role === "admin" && ["restrict", "ban", "delete_account"].includes(action)) { res.status(400).json({ error: "Remove admin rights first" }); return; }
 
   switch (action) {
     case "restrict":
@@ -163,6 +179,13 @@ router.post("/admin/users/:id/action", requireAdmin, async (req, res): Promise<v
     case "remove_admin":
       await db.update(usersTable).set({ role: "reader" }).where(eq(usersTable.id, id));
       break;
+    case "delete_account": {
+      // Kick off the platform: account, every creator ID / studio they own, stories, posts and replies are deleted now.
+      if (reason.length < 3) { res.status(400).json({ error: "Write a reason" }); return; }
+      await audit(req.user!.id, "user.delete_account", "user", id, { name: u.displayName, email: u.email, reason });
+      await runAccountDeletion(id, reason, { terminatedBy: req.user!.id });
+      res.json({ ok: true }); return;
+    }
     case "delete_comments": {
       const posts = await db.select({ postId: communityRepliesTable.postId, c: n }).from(communityRepliesTable).where(eq(communityRepliesTable.authorId, id)).groupBy(communityRepliesTable.postId);
       await db.delete(communityRepliesTable).where(eq(communityRepliesTable.authorId, id));

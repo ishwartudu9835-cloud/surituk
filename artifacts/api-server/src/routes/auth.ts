@@ -4,7 +4,7 @@ import { isDisposableEmail } from "../lib/trust";
 import crypto from "node:crypto";
 import { Router, type IRouter, type Request } from "express";
 import { and, desc, eq, isNull, gt, sql } from "drizzle-orm";
-import { db, usersTable, otpCodesTable, creatorsTable } from "@workspace/db";
+import { db, usersTable, otpCodesTable, creatorsTable, deletedAccountsTable } from "@workspace/db";
 import { config, isProd } from "../lib/config";
 import { createSessionToken, publicUser, requireAuth } from "../lib/auth";
 import { mailEnabled, sendOtpEmail } from "../lib/mailer";
@@ -66,6 +66,13 @@ async function findOrCreateUser(email: string, extra: { name?: string; picture?:
     if (extra.ip && extra.ip !== user.lastIp) patch.lastIp = extra.ip;
     if (Object.keys(patch).length) [user] = await db.update(usersTable).set(patch).where(eq(usersTable.id, user.id)).returning();
     return user;
+  }
+
+  // Someone an admin removed from Surituk can't sign up again with the same email (record kept 180 days).
+  if (!isAdmin) {
+    const [gone] = await db.select({ id: deletedAccountsTable.id }).from(deletedAccountsTable)
+      .where(and(eq(deletedAccountsTable.email, email), eq(deletedAccountsTable.kind, "terminated")));
+    if (gone) throw new SignupLimitError("This email was removed from Surituk and can't be used to sign up again.");
   }
 
   // Admins can pause new sign-ups.

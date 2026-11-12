@@ -16,6 +16,7 @@ type Detail = {
   creator: { id: number; name: string; slug: string | null; status: string; strikes: number; isVerified: boolean; totalManga: number; followers: number } | null;
   comments: { id: number; content: string; postId: number; createdAt: string }[];
   reportsAgainst: number; reportsMade: number;
+  ownedCreators: { id: number; name: string; type: string; totalManga: number }[]; deletedAt: string | null;
 };
 type Filter = "all" | "new" | "restricted" | "banned" | "creators" | "admins";
 
@@ -42,7 +43,7 @@ function UserDetail({ id, onClose }: { id: number; onClose: () => void }) {
         {u.role === "admin" && <Pill tone="blue">Admin</Pill>}
         {u.creator && <Pill tone="green">Creator: {u.creator.status}</Pill>}
         {u.blocked && !u.banned && <Pill tone="amber">Restricted</Pill>}
-        {u.banned && <Pill tone="red">Banned</Pill>}
+        {u.deletedAt ? <Pill tone="red">Deleted</Pill> : u.banned && <Pill tone="red">Banned</Pill>}
         {!u.onboarded && <Pill>Setup not finished</Pill>}
         {u.isAdult && <Pill>18+ confirmed</Pill>}
       </div>
@@ -66,7 +67,7 @@ function UserDetail({ id, onClose }: { id: number; onClose: () => void }) {
         </div>
       )}
 
-      <div>
+      {!u.deletedAt && <div>
         <p className="text-sm font-semibold mb-2">Actions</p>
         <div className="flex flex-wrap gap-2">
           <Act onClick={() => ask({ title: `Send a notice to ${u.displayName}`, reasonLabel: "Message", confirmLabel: "Send", run: async m => { if (m.trim().length < 3) throw new Error("Write a message"); await api("/admin/notices", { body: { target: "user", userId: u.id, message: m } }); } })} testid="act-notice-user"><Megaphone className="w-3.5 h-3.5" />Send notice</Act>
@@ -78,7 +79,22 @@ function UserDetail({ id, onClose }: { id: number; onClose: () => void }) {
           {u.role !== "admin" && !u.banned && <Act onClick={() => ask({ title: `Make ${u.displayName} an admin?`, body: "They'll get full control of this panel.", confirmLabel: "Make admin", danger: true, run: () => act("make_admin") })}><ShieldCheck className="w-3.5 h-3.5" />Make admin</Act>}
           {u.role === "admin" && !self && <Act danger onClick={() => ask({ title: "Remove admin rights?", confirmLabel: "Remove", danger: true, run: () => act("remove_admin") })}><X className="w-3.5 h-3.5" />Remove admin</Act>}
         </div>
-      </div>
+        {!self && u.role !== "admin" && (
+          <div className="mt-4 rounded-xl border border-red-500/40 bg-red-500/[0.05] p-3 space-y-2">
+            <p className="text-sm font-semibold text-red-300">Danger zone</p>
+            <p className="text-xs text-muted-foreground">
+              Ban = they can't log in, everything stays and you can unban. Delete = removed from Surituk now, can't be undone
+              {u.ownedCreators.length > 0 && <>: {u.ownedCreators.map(c => `${c.name} (${c.type}, ${c.totalManga} stories)`).join(", ")}</>}.
+            </p>
+            <Act danger testid="act-delete-account" onClick={() => ask({
+              title: `Delete ${u.displayName} from Surituk?`,
+              body: `Right now, with no waiting period: their account${u.ownedCreators.length ? `, ${u.ownedCreators.length} creator/studio account(s) with all stories and chapters` : ""}, their community posts and replies, library and history. They can't sign up again with this email. This can't be undone.`,
+              reasonLabel: "Reason (required, kept in audit log)", confirmLabel: "Delete permanently", danger: true,
+              run: async r => { if (r.trim().length < 3) throw new Error("Write a reason"); await act("delete_account", r); },
+            })}><Trash2 className="w-3.5 h-3.5" />Delete account permanently</Act>
+          </div>
+        )}
+      </div>}
 
       {u.comments.length > 0 && (
         <div>

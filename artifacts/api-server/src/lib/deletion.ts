@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
 import {
   db, usersTable, creatorsTable, mangaTable, chaptersTable, genresTable, readingHistoryTable, bookmarksTable,
   communityPostsTable, communityLikesTable, communityPollVotesTable, mangaRatingsTable, notificationsTable,
-  creatorSubscriptionsTable, teamMembersTable, accountDeletionsTable, deletedAccountsTable,
+  creatorSubscriptionsTable, teamMembersTable, accountDeletionsTable, deletedAccountsTable, communityRepliesTable,
 } from "@workspace/db";
 import { logger } from "./logger";
 
@@ -58,7 +58,7 @@ export async function deleteStory(id: number) {
 }
 
 /** Remove a creator / studio: its stories, posts, team and subscribers. The person keeps a normal reader account. */
-export async function runCreatorDeletion(creatorId: number, reason: string, byUserId?: number) {
+export async function runCreatorDeletion(creatorId: number, reason: string, byUserId?: number, byAdmin = false) {
   const [c] = await db.select().from(creatorsTable).where(eq(creatorsTable.id, creatorId));
   if (!c || c.status === "deleted") return;
   const stories = await db.select({ id: mangaTable.id }).from(mangaTable).where(eq(mangaTable.creatorId, creatorId));
@@ -78,16 +78,43 @@ export async function runCreatorDeletion(creatorId: number, reason: string, byUs
       userId: c.ownerUserId, email: u?.email ?? null, displayName: u?.displayName ?? null, username: u?.username ?? null,
       creatorName: c.name, kind: "creator", reason, purgeAfter: new Date(Date.now() + KEEP_REGISTRATION_DAYS * DAY),
     });
-    if (byUserId !== c.ownerUserId) await notify(c.ownerUserId, `Your creator account "${c.name}" has been deleted. You can keep reading as a reader.`);
+    if (byAdmin) await notify(c.ownerUserId, `Surituk has deleted your creator account "${c.name}" and all its stories and posts. Reason: ${reason}. If you think this is a mistake, contact the Grievance Officer.`);
+    else if (byUserId !== c.ownerUserId) await notify(c.ownerUserId, `Your creator account "${c.name}" has been deleted. You can keep reading as a reader.`);
   }
   logger.info({ creatorId }, "creator account deleted");
 }
 
 /** Delete a whole user account: personal data is erased, comments stay as "Deleted user". */
-export async function runAccountDeletion(userId: number, reason: string) {
+export async function runAccountDeletion(userId: number, reason: string, opts: { terminatedBy?: number } = {}) {
   const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
   if (!u || u.deletedAt) return;
-  if (u.creatorId) await runCreatorDeletion(u.creatorId, reason, userId);
+  const terminated = !!opts.terminatedBy;
+  // Every creator ID and studio this person owns goes with the account.
+  const owned = await db.select({ id: creatorsTable.id }).from(creatorsTable).where(eq(creatorsTable.ownerUserId, userId));
+  const ids = new Set(owned.map(o => o.id));
+  if (u.creatorId) {
+    const [cur] = await db.select({ owner: creatorsTable.ownerUserId }).from(creatorsTable).where(eq(creatorsTable.id, u.creatorId));
+    if (!cur?.owner || cur.owner === userId) ids.add(u.creatorId);
+  }
+  for (const id of ids) await runCreatorDeletion(id, reason, userId);
+
+  // Kicked off the platform by an admin: their community posts and replies go too.
+  if (terminated) {
+    const replied = await db.select({ postId: communityRepliesTable.postId, c: sql<number>`count(*)::int` }).from(communityRepliesTable)
+      .where(eq(communityRepliesTable.authorId, userId)).groupBy(communityRepliesTable.postId);
+    await db.delete(communityRepliesTable).where(eq(communityRepliesTable.authorId, userId));
+    for (const p of replied) await db.update(communityPostsTable).set({ replies: sql`greatest(${communityPostsTable.replies} - ${p.c}, 0)` }).where(eq(communityPostsTable.id, p.postId));
+    const mine = await db.select({ id: communityPostsTable.id }).from(communityPostsTable).where(eq(communityPostsTable.authorId, userId));
+    if (mine.length) {
+      const pids = mine.map(m => m.id);
+      await db.delete(communityRepliesTable).where(inArray(communityRepliesTable.postId, pids));
+      await db.delete(communityLikesTable).where(inArray(communityLikesTable.postId, pids));
+      await db.delete(communityPollVotesTable).where(inArray(communityPollVotesTable.postId, pids));
+      await db.delete(communityPostsTable).where(inArray(communityPostsTable.id, pids));
+    }
+  }
+  await db.update(accountDeletionsTable).set({ status: "cancelled" })
+    .where(and(eq(accountDeletionsTable.userId, userId), eq(accountDeletionsTable.status, "scheduled")));
 
   // Likes, votes and ratings: remove and fix the counts they fed into.
   const liked = await db.select({ postId: communityLikesTable.postId }).from(communityLikesTable).where(eq(communityLikesTable.userId, userId));
@@ -113,15 +140,15 @@ export async function runAccountDeletion(userId: number, reason: string) {
   await db.delete(teamMembersTable).where(eq(teamMembersTable.userId, userId));
 
   await db.insert(deletedAccountsTable).values({
-    userId, email: u.email, displayName: u.displayName, username: u.username, kind: "account", reason,
+    userId, email: u.email, displayName: u.displayName, username: u.username, kind: terminated ? "terminated" : "account", reason,
     purgeAfter: new Date(Date.now() + KEEP_REGISTRATION_DAYS * DAY),
   });
   await db.update(usersTable).set({
     email: null, googleId: null, username: `deleted-${userId}`, displayName: "Deleted user", avatar: DELETED_AVATAR, bio: null,
     favoriteGenres: [], isAdult: false, lastIp: null, role: "reader", creatorId: null,
-    banned: true, blocked: true, banReason: "Account deleted by the user", deletedAt: new Date(),
+    banned: true, blocked: true, banReason: terminated ? "Account terminated by Surituk" : "Account deleted by the user", deletedAt: new Date(),
   }).where(eq(usersTable.id, userId));
-  logger.info({ userId }, "user account deleted");
+  logger.info({ userId, terminated }, "user account deleted");
 }
 
 /** Run due deletions, send 48-hour reminders, purge old registration records. Safe to call often. */
