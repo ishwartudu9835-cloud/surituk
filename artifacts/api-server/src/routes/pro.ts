@@ -1,9 +1,9 @@
+import { hasAccess, needAccess } from "../lib/auth";
+import { notifyAdmins } from "../lib/deletion";
 import { assignCreatorSlug } from "../lib/slug";
 import { Router, type IRouter } from "express";
 import { and, desc, eq, gt, gte, isNotNull, sql } from "drizzle-orm";
-import {
-  db, usersTable, creatorsTable, creatorApplicationsTable, teamMembersTable, creatorInvitesTable, readingHistoryTable,
-} from "@workspace/db";
+import { db, usersTable, creatorsTable, creatorApplicationsTable, teamMembersTable, creatorInvitesTable, readingHistoryTable, creatorSubscriptionsTable, ownershipTransfersTable } from "@workspace/db";
 import { requireAuth, requireCreator } from "../lib/auth";
 import { approveApplication, getSetting, notifyUser, verificationCodeFor, TEAM_ROLES } from "../lib/creatorProgram";
 import { config } from "../lib/config";
@@ -104,11 +104,14 @@ router.get("/pro/invite/:token", async (req, res): Promise<void> => {
 
 router.post("/pro/apply", requireAuth, async (req, res): Promise<void> => {
   const u = req.user!;
-  if (u.creatorId) {
-    const [c] = await db.select({ status: creatorsTable.status }).from(creatorsTable).where(eq(creatorsTable.id, u.creatorId));
-    if (c?.status === "approved") { res.status(400).json({ error: "You already have a creator account" }); return; }
-    if (c?.status === "banned") { res.status(403).json({ error: "This account can't apply" }); return; }
-  }
+  // Account structure: one individual creator ID + up to 3 studios per person.
+  const owned = await db.select({ id: creatorsTable.id, type: creatorsTable.type, status: creatorsTable.status }).from(creatorsTable)
+    .where(and(eq(creatorsTable.ownerUserId, u.id), sql`${creatorsTable.status} <> 'deleted'`));
+  if (owned.some(c => c.status === "banned")) { res.status(403).json({ error: "This account can't apply" }); return; }
+  const wantType = req.body?.type === "studio" ? "studio" : "individual";
+  const live = owned.filter(c => c.status !== "pending");
+  if (wantType === "individual" && live.some(c => c.type === "individual")) { res.status(400).json({ error: "You already have an individual creator ID. You can open a studio instead." }); return; }
+  if (wantType === "studio" && live.filter(c => c.type === "studio").length >= MAX_STUDIOS) { res.status(400).json({ error: `You can open up to ${MAX_STUDIOS} studios.` }); return; }
   const [open] = await db.select().from(creatorApplicationsTable)
     .where(and(eq(creatorApplicationsTable.userId, u.id), sql`${creatorApplicationsTable.status} in ('pending','more_info')`)).limit(1);
   if (open) { res.status(400).json({ error: "You already have an application under review" }); return; }
@@ -117,8 +120,8 @@ router.post("/pro/apply", requireAuth, async (req, res): Promise<void> => {
   const v = parseApplication(req.body ?? {}, u.email);
   if (typeof v === "string") { res.status(400).json({ error: v }); return; }
 
-  // Pending creator row so the applicant can prepare private drafts while waiting.
-  let creatorId = u.creatorId;
+  // Pending creator row so the applicant can prepare private drafts while waiting (reuse one left from an earlier try).
+  let creatorId: number | null = owned.find(c => c.status === "pending" && c.type === v.type)?.id ?? null;
   if (!creatorId) {
     const [c] = await db.insert(creatorsTable).values({
       name: v.type === "studio" ? v.studioName! : v.penName, type: v.type, status: "pending",
@@ -126,8 +129,10 @@ router.post("/pro/apply", requireAuth, async (req, res): Promise<void> => {
     }).returning();
     c.slug = await assignCreatorSlug(c.id, c.name);
     creatorId = c.id;
-    await db.update(usersTable).set({ creatorId }).where(eq(usersTable.id, u.id));
+    await db.insert(teamMembersTable).values({ creatorId, userId: u.id, name: u.displayName, email: (u.email ?? "").toLowerCase(), role: "owner", access: "owner", status: "active" });
   }
+  // Switch to the new account only if they aren't already working as an approved one.
+  if (!u.creatorId || req.creatorStatus !== "approved") await db.update(usersTable).set({ creatorId }).where(eq(usersTable.id, u.id));
 
   const [app] = await db.insert(creatorApplicationsTable).values({
     ...v, userId: u.id, creatorId, verificationCode: verificationCodeFor(u.id),
@@ -171,37 +176,134 @@ router.patch("/pro/application", requireAuth, async (req, res): Promise<void> =>
   res.json({ application: appView(fresh) });
 });
 
+/* ---------------- My creator accounts (individual + studios) ---------------- */
+
+export const MAX_STUDIOS = 3;
+export const MAX_MEMBERSHIPS = 5;
+const TAGS = ["artist", "writer", "editor", "colorist", "letterer", "translator", "other"];
+const ACCESS = ["manager", "editor", "member"] as const;
+
+/** Every creator account I own or belong to — for the account switcher. */
+router.get("/pro/identities", requireAuth, async (req, res): Promise<void> => {
+  const rows = await db.select({
+    id: creatorsTable.id, name: creatorsTable.name, type: creatorsTable.type, status: creatorsTable.status, avatar: creatorsTable.avatar,
+    slug: creatorsTable.slug, ownerUserId: creatorsTable.ownerUserId, access: teamMembersTable.access, role: teamMembersTable.role,
+  }).from(teamMembersTable).innerJoin(creatorsTable, eq(teamMembersTable.creatorId, creatorsTable.id))
+    .where(and(eq(teamMembersTable.userId, req.user!.id), eq(teamMembersTable.status, "active"), sql`${creatorsTable.status} <> 'deleted'`))
+    .orderBy(creatorsTable.type, creatorsTable.name);
+  const list = rows.map(r => ({ ...r, access: r.ownerUserId === req.user!.id ? "owner" : r.access, active: r.id === req.user!.creatorId }));
+  res.json({
+    identities: list,
+    limits: {
+      individual: list.some(r => r.type === "individual" && r.access === "owner" && r.status !== "pending") ? 1 : 0,
+      studiosOwned: list.filter(r => r.type === "studio" && r.access === "owner" && r.status !== "pending").length,
+      memberships: list.filter(r => r.access !== "owner").length,
+      maxStudios: MAX_STUDIOS, maxMemberships: MAX_MEMBERSHIPS,
+    },
+  });
+});
+
+/** Work as another of my creator accounts. */
+router.post("/pro/switch", requireAuth, async (req, res): Promise<void> => {
+  const creatorId = Number(req.body?.creatorId);
+  const [m] = await db.select({ id: teamMembersTable.id }).from(teamMembersTable).innerJoin(creatorsTable, eq(teamMembersTable.creatorId, creatorsTable.id))
+    .where(and(eq(teamMembersTable.creatorId, creatorId), eq(teamMembersTable.userId, req.user!.id), eq(teamMembersTable.status, "active"), sql`${creatorsTable.status} <> 'deleted'`));
+  if (!m) { res.status(403).json({ error: "You're not part of that account" }); return; }
+  await db.update(usersTable).set({ creatorId, role: req.user!.role === "admin" ? "admin" : "creator" }).where(eq(usersTable.id, req.user!.id));
+  res.json({ ok: true });
+});
+
+/** Leave a studio I'm a member of (owners transfer ownership instead). */
+router.post("/pro/leave", requireAuth, async (req, res): Promise<void> => {
+  const creatorId = Number(req.body?.creatorId);
+  const [c] = await db.select({ ownerUserId: creatorsTable.ownerUserId, name: creatorsTable.name }).from(creatorsTable).where(eq(creatorsTable.id, creatorId));
+  if (!c) { res.status(404).json({ error: "Studio not found" }); return; }
+  if (c.ownerUserId === req.user!.id) { res.status(400).json({ error: "Owners can't leave. Transfer ownership first, or delete the studio." }); return; }
+  await db.delete(teamMembersTable).where(and(eq(teamMembersTable.creatorId, creatorId), eq(teamMembersTable.userId, req.user!.id)));
+  if (req.user!.creatorId === creatorId) await switchToAnother(req.user!.id, req.user!.role);
+  if (c.ownerUserId) await notifyUser(c.ownerUserId, `${req.user!.displayName} left ${c.name}.`);
+  res.json({ ok: true });
+});
+
+/** After leaving or removal: act as another account I belong to, or as a plain reader. */
+async function switchToAnother(userId: number, role: string) {
+  const [next] = await db.select({ creatorId: teamMembersTable.creatorId }).from(teamMembersTable).innerJoin(creatorsTable, eq(teamMembersTable.creatorId, creatorsTable.id))
+    .where(and(eq(teamMembersTable.userId, userId), eq(teamMembersTable.status, "active"), sql`${creatorsTable.status} <> 'deleted'`)).limit(1);
+  await db.update(usersTable).set({ creatorId: next?.creatorId ?? null, role: role === "admin" ? "admin" : next ? "creator" : "reader" }).where(eq(usersTable.id, userId));
+}
+
 /* ---------------- Studio team ---------------- */
 
 router.get("/pro/team", requireCreator, async (req, res): Promise<void> => {
   const rows = await db.select().from(teamMembersTable).where(eq(teamMembersTable.creatorId, req.user!.creatorId!)).orderBy(teamMembersTable.createdAt);
-  res.json(rows.map(r => ({ id: r.id, name: r.name, email: r.email, role: r.role, status: r.status })));
+  const [c] = await db.select({ ownerUserId: creatorsTable.ownerUserId }).from(creatorsTable).where(eq(creatorsTable.id, req.user!.creatorId!));
+  res.json(rows.map(r => ({
+    id: r.id, userId: r.userId, name: r.name, role: r.role, status: r.status,
+    access: r.userId && r.userId === c?.ownerUserId ? "owner" : r.access,
+    // Team emails are visible to the owner and managers only (needed to manage invites).
+    email: hasAccess(req, "manager") ? r.email : undefined,
+    isMe: r.userId === req.user!.id,
+  })));
 });
 
 router.post("/pro/team", requireCreator, async (req, res): Promise<void> => {
   const creatorId = req.user!.creatorId!;
-  const [me] = await db.select({ role: teamMembersTable.role }).from(teamMembersTable).where(and(eq(teamMembersTable.creatorId, creatorId), eq(teamMembersTable.userId, req.user!.id)));
   const [c] = await db.select().from(creatorsTable).where(eq(creatorsTable.id, creatorId));
-  if (c?.type !== "studio" || (me?.role !== "owner" && c.ownerUserId !== req.user!.id)) { res.status(403).json({ error: "Only the studio owner can invite members" }); return; }
+  if (c?.type !== "studio") { res.status(400).json({ error: "Only studios have teams" }); return; }
+  if (!needAccess(req, res, "manager", "add team members")) return;
   if (c.status !== "approved") { res.status(400).json({ error: "Team invites are sent after your studio is approved" }); return; }
   const name = clean(req.body?.name, 80), email = clean(req.body?.email, 120).toLowerCase(), role = clean(req.body?.role, 20).toLowerCase();
-  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || !["artist", "writer", "editor"].includes(role)) { res.status(400).json({ error: "Name, valid email and role (Artist/Writer/Editor) are required" }); return; }
+  const access = ACCESS.includes(req.body?.access) ? req.body.access as (typeof ACCESS)[number] : "editor";
+  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || !TAGS.includes(role)) { res.status(400).json({ error: "Name, valid email and a role are required" }); return; }
+  if (access === "manager" && !hasAccess(req, "owner")) { res.status(403).json({ error: "Only the owner can add managers" }); return; }
+  const [dup] = await db.select({ id: teamMembersTable.id }).from(teamMembersTable).where(and(eq(teamMembersTable.creatorId, creatorId), eq(teamMembersTable.email, email)));
+  if (dup) { res.status(400).json({ error: "This person is already in the team or invited" }); return; }
   const { inviteTeam } = await import("../lib/creatorProgram");
   await inviteTeam(creatorId, c.name, [{ name, email, role }], (req.user!.email ?? "").toLowerCase());
+  await db.update(teamMembersTable).set({ access }).where(and(eq(teamMembersTable.creatorId, creatorId), eq(teamMembersTable.email, email)));
   res.status(201).json({ ok: true });
+});
+
+/** Change a member's role tag or access level. */
+router.patch("/pro/team/:id", requireCreator, async (req, res): Promise<void> => {
+  const creatorId = req.user!.creatorId!;
+  if (!needAccess(req, res, "manager", "change team roles")) return;
+  const [m] = await db.select().from(teamMembersTable).where(and(eq(teamMembersTable.id, Number(req.params.id)), eq(teamMembersTable.creatorId, creatorId)));
+  if (!m) { res.status(404).json({ error: "Member not found" }); return; }
+  const [c] = await db.select({ ownerUserId: creatorsTable.ownerUserId }).from(creatorsTable).where(eq(creatorsTable.id, creatorId));
+  if (m.userId && m.userId === c?.ownerUserId) { res.status(400).json({ error: "The owner's access can't be changed. Use ownership transfer." }); return; }
+  const patch: Partial<typeof teamMembersTable.$inferInsert> = {};
+  if (req.body?.role !== undefined) { const r = clean(req.body.role, 20).toLowerCase(); if (!TAGS.includes(r)) { res.status(400).json({ error: "Unknown role" }); return; } patch.role = r; }
+  if (req.body?.access !== undefined) {
+    if (!ACCESS.includes(req.body.access)) { res.status(400).json({ error: "Unknown access level" }); return; }
+    if ((req.body.access === "manager" || m.access === "manager") && !hasAccess(req, "owner")) { res.status(403).json({ error: "Only the owner can add or remove managers" }); return; }
+    patch.access = req.body.access;
+  }
+  await db.update(teamMembersTable).set(patch).where(eq(teamMembersTable.id, m.id));
+  if (m.userId && patch.access) await notifyUser(m.userId, `Your access in the studio is now: ${patch.access}.`);
+  res.json({ ok: true });
 });
 
 router.delete("/pro/team/:id", requireCreator, async (req, res): Promise<void> => {
   const creatorId = req.user!.creatorId!;
+  if (!needAccess(req, res, "manager", "remove team members")) return;
   const [c] = await db.select().from(creatorsTable).where(eq(creatorsTable.id, creatorId));
-  if (c?.ownerUserId !== req.user!.id) { res.status(403).json({ error: "Only the studio owner can remove members" }); return; }
-  const [m] = await db.delete(teamMembersTable).where(and(eq(teamMembersTable.id, Number(req.params.id)), eq(teamMembersTable.creatorId, creatorId), sql`${teamMembersTable.role} <> 'owner'`)).returning();
-  if (m?.userId) await db.update(usersTable).set({ creatorId: null, role: "reader" }).where(and(eq(usersTable.id, m.userId), eq(usersTable.creatorId, creatorId), sql`${usersTable.role} <> 'admin'`));
-  res.json({ ok: !!m });
+  const [m] = await db.select().from(teamMembersTable).where(and(eq(teamMembersTable.id, Number(req.params.id)), eq(teamMembersTable.creatorId, creatorId)));
+  if (!m) { res.status(404).json({ error: "Member not found" }); return; }
+  if (m.userId && m.userId === c?.ownerUserId) { res.status(400).json({ error: "The owner can't be removed" }); return; }
+  if (m.access === "manager" && !hasAccess(req, "owner")) { res.status(403).json({ error: "Only the owner can remove a manager" }); return; }
+  if (m.userId === req.user!.id) { res.status(400).json({ error: "Use “Leave studio” to remove yourself" }); return; }
+  await db.delete(teamMembersTable).where(eq(teamMembersTable.id, m.id));
+  if (m.userId) {
+    const [u] = await db.select({ creatorId: usersTable.creatorId, role: usersTable.role }).from(usersTable).where(eq(usersTable.id, m.userId));
+    if (u?.creatorId === creatorId) await switchToAnother(m.userId, u.role);
+    await notifyUser(m.userId, `You were removed from ${c?.name ?? "a studio"}.`);
+  }
+  res.json({ ok: true });
 });
 
 router.get("/pro/team-invite/:token", async (req, res): Promise<void> => {
-  const [m] = await db.select({ name: teamMembersTable.name, email: teamMembersTable.email, role: teamMembersTable.role, status: teamMembersTable.status, studio: creatorsTable.name, avatar: creatorsTable.avatar })
+  const [m] = await db.select({ name: teamMembersTable.name, email: teamMembersTable.email, role: teamMembersTable.role, access: teamMembersTable.access, status: teamMembersTable.status, studio: creatorsTable.name, avatar: creatorsTable.avatar })
     .from(teamMembersTable).innerJoin(creatorsTable, eq(teamMembersTable.creatorId, creatorsTable.id)).where(eq(teamMembersTable.inviteToken, String(req.params.token)));
   if (!m) { res.status(404).json({ error: "This invite link is invalid or was already used" }); return; }
   res.json(m);
@@ -212,9 +314,55 @@ router.post("/pro/team-invite/:token/accept", requireAuth, async (req, res): Pro
   const [m] = await db.select().from(teamMembersTable).where(eq(teamMembersTable.inviteToken, String(req.params.token)));
   if (!m || m.status !== "invited") { res.status(404).json({ error: "This invite link is invalid or was already used" }); return; }
   if ((u.email ?? "").toLowerCase() !== m.email) { res.status(403).json({ error: `This invite is for ${m.email}. Log in with that email to accept.` }); return; }
-  if (u.creatorId && u.creatorId !== m.creatorId) { res.status(400).json({ error: "You already belong to another creator account" }); return; }
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(teamMembersTable).innerJoin(creatorsTable, eq(teamMembersTable.creatorId, creatorsTable.id))
+    .where(and(eq(teamMembersTable.userId, u.id), eq(teamMembersTable.status, "active"), sql`${teamMembersTable.access} <> 'owner'`, sql`${creatorsTable.ownerUserId} <> ${u.id}`, sql`${creatorsTable.status} <> 'deleted'`));
+  if (n >= MAX_MEMBERSHIPS) { res.status(400).json({ error: `You can be a member of up to ${MAX_MEMBERSHIPS} studios. Leave one first.` }); return; }
   await db.update(teamMembersTable).set({ userId: u.id, status: "active", inviteToken: null }).where(eq(teamMembersTable.id, m.id));
   await db.update(usersTable).set({ creatorId: m.creatorId, role: u.role === "admin" ? "admin" : "creator" }).where(eq(usersTable.id, u.id));
+  res.json({ ok: true });
+});
+
+/* ---------------- Studio-only extras ---------------- */
+
+/** Names of subscribers (never emails). Studios only; owner and managers. */
+router.get("/pro/followers", requireCreator, async (req, res): Promise<void> => {
+  if (req.creatorType !== "studio") { res.status(403).json({ error: "The followers list is a studio feature" }); return; }
+  if (!needAccess(req, res, "manager", "see followers")) return;
+  const rows = await db.select({ name: usersTable.displayName, username: usersTable.username, avatar: usersTable.avatar, since: creatorSubscriptionsTable.createdAt })
+    .from(creatorSubscriptionsTable).innerJoin(usersTable, eq(creatorSubscriptionsTable.userId, usersTable.id))
+    .where(and(eq(creatorSubscriptionsTable.creatorId, req.user!.creatorId!), sql`${usersTable.deletedAt} is null`))
+    .orderBy(desc(creatorSubscriptionsTable.createdAt)).limit(1000);
+  res.json(rows.map(r => ({ ...r, since: r.since.toISOString() })));
+});
+
+/** Ask to hand the studio to another active member. Completes only after an admin approves. */
+router.post("/pro/transfer", requireCreator, async (req, res): Promise<void> => {
+  if (req.creatorType !== "studio") { res.status(400).json({ error: "Only studios can be transferred" }); return; }
+  if (!needAccess(req, res, "owner", "transfer the studio")) return;
+  const creatorId = req.user!.creatorId!;
+  const memberId = Number(req.body?.memberId);
+  const [m] = await db.select().from(teamMembersTable).where(and(eq(teamMembersTable.id, memberId), eq(teamMembersTable.creatorId, creatorId), eq(teamMembersTable.status, "active")));
+  if (!m?.userId || m.userId === req.user!.id) { res.status(400).json({ error: "Choose an active team member" }); return; }
+  const [open] = await db.select({ id: ownershipTransfersTable.id }).from(ownershipTransfersTable).where(and(eq(ownershipTransfersTable.creatorId, creatorId), eq(ownershipTransfersTable.status, "pending")));
+  if (open) { res.status(400).json({ error: "A transfer is already waiting for admin approval" }); return; }
+  await db.insert(ownershipTransfersTable).values({ creatorId, fromUserId: req.user!.id, toUserId: m.userId, note: clean(req.body?.note, 300) || null });
+  const [c] = await db.select({ name: creatorsTable.name }).from(creatorsTable).where(eq(creatorsTable.id, creatorId));
+  await notifyAdmins(`🔑 Ownership transfer requested: ${c?.name} → ${m.name}. Review it in Admin → Creators → Transfers.`);
+  await notifyUser(m.userId, `${req.user!.displayName} wants to make you the owner of ${c?.name}. It completes after Surituk approves it.`);
+  res.status(201).json({ ok: true });
+});
+
+router.get("/pro/transfer", requireCreator, async (req, res): Promise<void> => {
+  const [t] = await db.select({ id: ownershipTransfersTable.id, toUserId: ownershipTransfersTable.toUserId, toName: usersTable.displayName, createdAt: ownershipTransfersTable.createdAt })
+    .from(ownershipTransfersTable).leftJoin(usersTable, eq(ownershipTransfersTable.toUserId, usersTable.id))
+    .where(and(eq(ownershipTransfersTable.creatorId, req.user!.creatorId!), eq(ownershipTransfersTable.status, "pending")));
+  res.json(t ? { ...t, createdAt: t.createdAt.toISOString() } : null);
+});
+
+router.delete("/pro/transfer", requireCreator, async (req, res): Promise<void> => {
+  if (!needAccess(req, res, "owner", "cancel the transfer")) return;
+  await db.update(ownershipTransfersTable).set({ status: "cancelled", decidedAt: new Date() })
+    .where(and(eq(ownershipTransfersTable.creatorId, req.user!.creatorId!), eq(ownershipTransfersTable.status, "pending")));
   res.json({ ok: true });
 });
 

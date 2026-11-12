@@ -47,7 +47,9 @@ export const teamMembersTable = pgTable("team_members", {
   userId: integer("user_id"),
   name: text("name").notNull(),
   email: text("email").notNull(),
-  role: text("role").notNull(), // owner | artist | writer | editor
+  role: text("role").notNull(), // role tag shown on the studio page: owner | artist | writer | editor | colorist | letterer | translator | other
+  /** What they can do: owner (everything) | manager (team, delete chapters/pages, reorder) | editor (upload & edit) | member (credit only) */
+  access: text("access").notNull().default("editor"),
   status: text("status").notNull().default("invited"), // invited | active
   inviteToken: text("invite_token").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -93,3 +95,15 @@ export const adminAuditLogTable = pgTable("admin_audit_log", {
 
 export type CreatorApplication = typeof creatorApplicationsTable.$inferSelect;
 export type TeamMember = typeof teamMembersTable.$inferSelect;
+
+/** Studio ownership transfer: requested by the owner, completed only after an admin approves. */
+export const ownershipTransfersTable = pgTable("ownership_transfers", {
+  id: serial("id").primaryKey(),
+  creatorId: integer("creator_id").notNull(),
+  fromUserId: integer("from_user_id").notNull(),
+  toUserId: integer("to_user_id").notNull(),
+  note: text("note"),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected | cancelled
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+});

@@ -118,7 +118,7 @@ export async function approveApplication(app: CreatorApplication, adminUserId: n
 
   if (isStudio) {
     const [owner] = await db.select({ id: teamMembersTable.id }).from(teamMembersTable).where(and(eq(teamMembersTable.creatorId, creatorId), eq(teamMembersTable.userId, user.id)));
-    if (!owner) await db.insert(teamMembersTable).values({ creatorId, userId: user.id, name: app.legalName, email: (user.email ?? app.email).toLowerCase(), role: "owner", status: "active" });
+    if (!owner) await db.insert(teamMembersTable).values({ creatorId, userId: user.id, name: app.legalName, email: (user.email ?? app.email).toLowerCase(), role: "owner", access: "owner", status: "active" });
     await inviteTeam(creatorId, name, app.teamMembers ?? [], (user.email ?? app.email).toLowerCase());
   }
 

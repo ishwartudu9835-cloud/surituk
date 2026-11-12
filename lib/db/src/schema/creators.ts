@@ -31,6 +31,8 @@ export const creatorsTable = pgTable("creators", {
   strikes: integer("strikes").notNull().default(0),
   /** Hidden by an admin: creator page and all stories are invisible to readers. */
   hidden: boolean("hidden").notNull().default(false),
+  /** Studio page accent colour (studios only). */
+  themeColor: text("theme_color"),
   /** When the creator account was approved (deletion is allowed 15 days after this). */
   approvedAt: timestamp("approved_at", { withTimezone: true }),
   upiId: text("upi_id"),

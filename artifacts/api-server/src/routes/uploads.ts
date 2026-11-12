@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import multer from "multer";
-import { requireCreator, requireAuth } from "../lib/auth";
+import { requireCreator, requireAuth, needAccess } from "../lib/auth";
 import { savePublic, savePrivate } from "../lib/storage";
 
 const router: IRouter = Router();
@@ -71,7 +71,7 @@ router.post("/uploads/avatar", requireAuth, handle(imageUpload.single("file")), 
 });
 
 /** Many images (chapter pages), returned in the same order they were sent. Field name: files */
-router.post("/uploads/images", requireCreator, handle(imageUpload.array("files", 200)), async (req, res): Promise<void> => {
+router.post("/uploads/images", requireCreator, (req, res, next) => { if (needAccess(req, res, "editor", "upload pages")) next(); }, handle(imageUpload.array("files", 200)), async (req, res): Promise<void> => {
   const files = (req.files as Express.Multer.File[] | undefined) ?? [];
   if (!files.length) { res.status(400).json({ error: "No files uploaded" }); return; }
   for (const f of files) {
@@ -86,7 +86,7 @@ router.post("/uploads/images", requireCreator, handle(imageUpload.array("files",
 });
 
 /** The private book file buyers download (PDF / EPUB / CBZ). Field name: file */
-router.post("/uploads/book", requireCreator, handle(bookUpload.single("file")), async (req, res): Promise<void> => {
+router.post("/uploads/book", requireCreator, (req, res, next) => { if (needAccess(req, res, "editor", "upload files")) next(); }, handle(bookUpload.single("file")), async (req, res): Promise<void> => {
   const f = req.file;
   if (!f) { res.status(400).json({ error: "No file uploaded" }); return; }
   const kind = sniff(f.buffer);

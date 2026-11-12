@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { and, eq, sql } from "drizzle-orm";
 import { db, reportsTable } from "@workspace/db";
 import { requireAuth } from "../lib/auth";
+import { maybeAutoHide } from "../lib/piracy";
 
 /** Readers report content. Admins review it in Admin → Reports. */
 const router: IRouter = Router();
@@ -40,6 +41,7 @@ router.post("/reports", requireAuth, async (req, res): Promise<void> => {
   const [r] = await db.insert(reportsTable).values({
     reporterId: req.user!.id, targetType, targetId, reason, details: details || null, claimantName, claimantEmail, originalUrl,
   }).returning({ id: reportsTable.id });
+  await maybeAutoHide(targetType, targetId);
   res.status(201).json({ ok: true, id: r.id });
 });
 

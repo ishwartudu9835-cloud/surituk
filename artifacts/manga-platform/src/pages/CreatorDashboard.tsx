@@ -1,10 +1,11 @@
+import { AccountSwitcher, StudioTeam, Followers, ThemePicker } from "@/components/StudioTools";
 import { isImageFile } from "@/lib/image";
 import { mangaHref, creatorHref } from "@/lib/links";
 import { POPULAR_LANGUAGES, MORE_LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages";
 import { useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
-  useGetCreator, useGetCreatorAnalytics, useCreateChapter, useListGenres,
+  useGetCreator, useGetCreatorAnalytics, useListGenres,
   getGetCreatorQueryKey, getGetCreatorAnalyticsQueryKey, getListMangaQueryKey,
 } from "@workspace/api-client-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ImageUpload } from "@/components/ImageUpload";
-import { api, rupees, uploadFiles, type Product } from "@/lib/api";
+import { canDo, api, rupees, uploadFiles, type Product } from "@/lib/api";
 import { pdfToImages } from "@/lib/pdf";
 import { ManageSeries } from "@/components/ManageSeries";
 import { FEATURES } from "@/lib/features";
@@ -27,7 +28,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { INDIAN_STATES } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
-type Section = "overview" | "manga" | "upload-manga" | "upload-chapter" | "store" | "sales" | "team" | "settings";
+type Section = "overview" | "manga" | "upload-manga" | "upload-chapter" | "store" | "sales" | "team" | "settings" | "followers";
 type MySeries = { id: number; title: string; coverImage: string; chapterCount: number; views: number; isPublished: boolean; isMature: boolean; genre: string };
 const sidebarItems: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: "overview", label: "Overview", icon: <BarChart2 className="w-4 h-4" /> },
@@ -39,6 +40,7 @@ const sidebarItems: { id: Section; label: string; icon: React.ReactNode }[] = [
     { id: "sales" as Section, label: "Sales & Payouts", icon: <Wallet className="w-4 h-4" /> },
   ] : []),
   { id: "team", label: "Studio Team", icon: <Users className="w-4 h-4" /> },
+  { id: "followers", label: "Followers", icon: <Heart className="w-4 h-4" /> },
   { id: "settings", label: "Creator Page", icon: <Settings className="w-4 h-4" /> },
 ];
 
@@ -52,7 +54,7 @@ const naturalSort = (a: File, b: File) => a.name.localeCompare(b.name, undefined
 function UploadManga({ onDone, canPublish }: { onDone: () => void; canPublish: boolean }) {
   const qc = useQueryClient();
   const { data: genres } = useListGenres();
-  const [f, setF] = useState({ title: "", description: "", genre: "", language: DEFAULT_LANGUAGE, coverImage: "", bannerImage: "", tags: "", isMature: false });
+  const [f, setF] = useState({ title: "", description: "", genre: "", language: DEFAULT_LANGUAGE, coverImage: "", bannerImage: "", tags: "", isMature: false, owns: false });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -63,7 +65,7 @@ function UploadManga({ onDone, canPublish }: { onDone: () => void; canPublish: b
     try {
       await api("/manga", { body: {
         title: f.title, description: f.description, genre: f.genre || genres?.[0]?.name || "Action", language: f.language,
-        coverImage: f.coverImage, bannerImage: f.bannerImage || undefined, isMature: f.isMature, publish: false,
+        coverImage: f.coverImage, bannerImage: f.bannerImage || undefined, isMature: f.isMature, publish: false, ownershipConfirmed: f.owns,
         tags: f.tags.split(",").map(t => t.trim()).filter(Boolean).slice(0, 8),
       } });
       qc.invalidateQueries({ queryKey: ["my-series"] });
@@ -97,12 +99,23 @@ function UploadManga({ onDone, canPublish }: { onDone: () => void; canPublish: b
             <Checkbox checked={f.isMature} onCheckedChange={v => setF({ ...f, isMature: v === true })} className="mt-0.5" />
             <span><b>18+ / mature content</b> <span className="text-muted-foreground">— only readers who confirmed 18+ will see it.</span></span>
           </label>
+          <OwnershipCheck checked={f.owns} onChange={owns => setF({ ...f, owns })} />
           <p className="text-xs text-muted-foreground rounded-lg bg-secondary/50 px-3 py-2">The series is saved as a <b>private draft</b>. Add chapters, then {canPublish ? "publish it from My Graphic Novels." : "publish after your creator account is approved."}</p>
           {err && <p className="text-sm text-red-400">{err}</p>}
-          <Button type="submit" disabled={busy} className="w-full">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create draft series"}</Button>
+          <Button type="submit" disabled={busy || !f.owns} className="w-full">{busy ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create draft series"}</Button>
         </div>
       </form>
     </div>
+  );
+}
+
+/** "This is my original work" — required before every upload. */
+function OwnershipCheck({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer text-sm rounded-lg border border-border bg-secondary/30 p-3" data-testid="ownership-check">
+      <Checkbox checked={checked} onCheckedChange={v => onChange(v === true)} className="mt-0.5" />
+      <span><b>This is my (or my studio's) original work</b>, or I have written permission to publish it. I understand copied work is removed and gets the account banned.</span>
+    </label>
   );
 }
 
@@ -110,7 +123,7 @@ function UploadManga({ onDone, canPublish }: { onDone: () => void; canPublish: b
 
 function UploadChapter({ myManga }: { myManga: { id: number; title: string; chapterCount: number }[] }) {
   const qc = useQueryClient();
-  const createChapter = useCreateChapter();
+  const [owns, setOwns] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const [mangaId, setMangaId] = useState("");
   const [num, setNum] = useState("");
@@ -157,7 +170,7 @@ function UploadChapter({ myManga }: { myManga: { id: number; title: string; chap
         urls.push(...r.urls);
       }
       setPct(100);
-      await createChapter.mutateAsync({ mangaId: Number(mangaId), data: { chapterNumber: Number(num), title, pages: urls } });
+      await api(`/manga/${mangaId}/chapters`, { body: { chapterNumber: Number(num), title, pages: urls, ownershipConfirmed: owns } });
       qc.invalidateQueries();
       setMsg({ ok: true, text: `Chapter ${num} published with ${urls.length} pages!` });
       setFiles([]); setTitle(""); setNum(String(Number(num) + 1));
@@ -217,7 +230,8 @@ function UploadChapter({ myManga }: { myManga: { id: number; title: string; chap
 
         {pct !== null && <div className="h-2 rounded-full bg-secondary overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>}
         {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.text}</p>}
-        <Button type="submit" disabled={pct !== null || !!converting} className="w-full">{pct !== null ? `Uploading… ${pct}%` : converting ? "Converting PDF…" : "Publish chapter"}</Button>
+        <OwnershipCheck checked={owns} onChange={setOwns} />
+        <Button type="submit" disabled={pct !== null || !!converting || !owns} className="w-full">{pct !== null ? `Uploading… ${pct}%` : converting ? "Converting PDF…" : "Publish chapter"}</Button>
       </form>
     </div>
   );
@@ -535,6 +549,7 @@ function CreatorSettings() {
           <div><label className={label}>YouTube</label><Input value={f.youtubeUrl} onChange={set("youtubeUrl")} placeholder="https://youtube.com/@…" /></div>
           <div><label className={label}>Website</label><Input value={f.websiteUrl} onChange={set("websiteUrl")} placeholder="https://" /></div>
         </div>
+        <ThemePicker />
         {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.t}</p>}
         <div className="flex gap-3">
           <Button type="submit" className="flex-1">Save</Button>
@@ -542,53 +557,6 @@ function CreatorSettings() {
         </div>
       </form>
       <p className="text-xs text-muted-foreground mt-4">Payment details (UPI) are asked only when your earnings reach the minimum payout.</p>
-    </div>
-  );
-}
-
-/* ---------------- Studio team ---------------- */
-
-function StudioTeam() {
-  const { me } = useAuth();
-  const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ["studio-team"], queryFn: () => api<{ id: number; name: string; email: string; role: string; status: string }[]>("/pro/team") });
-  const [f, setF] = useState({ name: "", email: "", role: "artist" });
-  const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
-  if (me?.creator?.type !== "studio") return <div className={card}>Team members are for Studio accounts.</div>;
-  async function invite(e: React.FormEvent) {
-    e.preventDefault(); setMsg(null);
-    try { await api("/pro/team", { body: f }); setF({ name: "", email: "", role: "artist" }); setMsg({ ok: true, t: "Invite sent by email" }); qc.invalidateQueries({ queryKey: ["studio-team"] }); }
-    catch (e) { setMsg({ ok: false, t: (e as Error).message }); }
-  }
-  async function remove(id: number) {
-    if (!confirm("Remove this member from the studio?")) return;
-    await api(`/pro/team/${id}`, { method: "DELETE" }); qc.invalidateQueries({ queryKey: ["studio-team"] });
-  }
-  return (
-    <div className="max-w-2xl space-y-6">
-      <h1 className="text-3xl font-bold">Studio Team</h1>
-      <div className={card}>
-        <div className="divide-y divide-border">
-          {data?.map(m => (
-            <div key={m.id} className="flex items-center gap-3 py-3">
-              <div className="flex-1 min-w-0"><p className="font-medium">{m.name}</p><p className="text-xs text-muted-foreground truncate">{m.email}</p></div>
-              <span className="text-xs capitalize px-2 py-0.5 rounded bg-secondary">{m.role}</span>
-              <span className={`text-xs px-2 py-0.5 rounded ${m.status === "active" ? "bg-green-500/15 text-green-400" : "bg-accent/15 text-accent"}`}>{m.status === "active" ? "Joined" : "Invited"}</span>
-              {m.role !== "owner" && <Button size="icon" variant="ghost" onClick={() => remove(m.id)} aria-label="Remove"><X className="w-4 h-4" /></Button>}
-            </div>
-          ))}
-        </div>
-      </div>
-      <form onSubmit={invite} className={`${card} space-y-3`}>
-        <h2 className="font-bold">Invite a member</h2>
-        <div className="grid sm:grid-cols-[1fr_1fr_130px] gap-2">
-          <Input required placeholder="Name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} />
-          <Input required type="email" placeholder="Email" value={f.email} onChange={e => setF({ ...f, email: e.target.value })} />
-          <select value={f.role} onChange={e => setF({ ...f, role: e.target.value })} className="h-10 rounded-md bg-background border border-input px-3 text-sm"><option value="artist">Artist</option><option value="writer">Writer</option><option value="editor">Editor</option></select>
-        </div>
-        {msg && <p className={`text-sm ${msg.ok ? "text-green-400" : "text-red-400"}`}>{msg.t}</p>}
-        <Button type="submit">Send invite</Button>
-      </form>
     </div>
   );
 }
@@ -631,7 +599,14 @@ export default function CreatorDashboard() {
       <p className="text-muted-foreground">Check your notifications for the reason. Contact the <Link href="/grievance" className="text-primary underline">Grievance Officer</Link> if you think this is a mistake.</p>
     </div>
   );
-  const visibleItems = sidebarItems.filter(i => (i.id !== "team" || me.creator?.type === "studio") && (approved || !["store", "sales", "overview"].includes(i.id)));
+  const studio = me.creator?.type === "studio";
+  const canUpload = canDo(me, "editor");
+  const visibleItems = sidebarItems.filter(i =>
+    (!["team", "followers"].includes(i.id) || studio) &&
+    (i.id !== "followers" || canDo(me, "manager")) &&
+    (canUpload || !["upload-manga", "upload-chapter"].includes(i.id)) &&
+    (canDo(me, "manager") || i.id !== "settings") &&
+    (approved || !["store", "sales", "overview"].includes(i.id)));
   const current: Section = !approved && ["overview", "store", "sales"].includes(active) ? "manga" : active;
 
   const nav = (item: typeof sidebarItems[number], mobile = false) => (
@@ -647,14 +622,14 @@ export default function CreatorDashboard() {
     <div className="flex flex-col md:flex-row min-h-screen">
       <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-border bg-card/20 p-4 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
         <p className="text-xs text-muted-foreground uppercase tracking-widest mb-2">Creator Studio</p>
-        <div className="flex items-center gap-2 mb-6">
-          <img src={creator?.avatar ?? me.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
-          <p className="text-sm font-medium truncate">{creator?.name ?? me.creator?.name}{creator?.isVerified && <CheckCircle className="w-3 h-3 text-primary inline ml-1" />}</p>
-        </div>
+        <div className="mb-6"><AccountSwitcher /></div>
         <Button asChild variant="ghost" size="sm" className="w-full justify-start mb-2 text-muted-foreground"><Link href="/"><Home className="w-4 h-4 mr-2" /> Back to Home</Link></Button>
         <nav className="space-y-1">{visibleItems.map(i => nav(i))}</nav>
       </aside>
-      <div className="md:hidden border-b border-border bg-card/30 sticky top-16 z-40"><div className="flex overflow-x-auto px-2">{visibleItems.map(i => nav(i, true))}</div></div>
+      <div className="md:hidden border-b border-border bg-card/30 sticky top-16 z-40">
+        <div className="px-3 pt-3"><AccountSwitcher compact /></div>
+        <div className="flex overflow-x-auto px-2">{visibleItems.map(i => nav(i, true))}</div>
+      </div>
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         {!approved && (
@@ -738,6 +713,7 @@ export default function CreatorDashboard() {
         {current === "store" && <SellBooks />}
         {current === "sales" && <Sales goSettings={() => setActive("settings")} />}
         {current === "team" && <StudioTeam />}
+        {current === "followers" && <Followers />}
         {current === "settings" && <CreatorSettings />}
       </main>
     </div>

@@ -10,6 +10,7 @@ function formatCreator(c: typeof creatorsTable.$inferSelect) {
     id: c.id,
     name: c.name,
     slug: c.slug ?? null,
+    themeColor: c.type === "studio" ? c.themeColor ?? null : null,
     studioName: c.studioName ?? null,
     avatar: c.avatar,
     banner: c.banner ?? null,
@@ -30,7 +31,7 @@ function formatCreator(c: typeof creatorsTable.$inferSelect) {
       website: c.websiteUrl ?? null,
       youtube: c.youtubeUrl ?? null,
     },
-    isVerified: c.isVerified,
+    isVerified: c.isVerified && c.type === "studio",
     rank: c.rank ?? null,
     joinedAt: c.joinedAt?.toISOString() ?? new Date().toISOString(),
   };

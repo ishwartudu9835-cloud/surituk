@@ -110,6 +110,10 @@ router.get("/admin/creators", requireAdmin, async (req, res): Promise<void> => {
 
 router.patch("/admin/creators/:id", requireAdmin, async (req, res): Promise<void> => {
   const b = req.body ?? {};
+  if (b.isVerified === true) {
+    const [t] = await db.select({ type: creatorsTable.type }).from(creatorsTable).where(eq(creatorsTable.id, id(req.params.id)));
+    if (t?.type !== "studio") { res.status(400).json({ error: "The verified badge is for studios only" }); return; }
+  }
   const patch: Partial<typeof creatorsTable.$inferInsert> = {};
   const reason = typeof b.reason === "string" ? b.reason.trim().slice(0, 500) : "";
   if (b.status !== undefined) {

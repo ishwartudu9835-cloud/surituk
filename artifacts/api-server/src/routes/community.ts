@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request } from "express";
-import { requireAuth, isApprovedCreator } from "../lib/auth";
+import { requireAuth, isApprovedCreator, hasAccess } from "../lib/auth";
 import { requireTrusted } from "../lib/trust";
 import { notifySubscribers } from "../lib/notify";
 import { and, asc, desc, eq, inArray, sql, type SQL } from "drizzle-orm";
@@ -33,7 +33,7 @@ const MAX_IMAGES = 4;
 
 const num = (v: unknown) => parseInt(String(Array.isArray(v) ? v[0] : v), 10);
 const isAdmin = (req: Request) => req.user?.role === "admin";
-const canPost = (req: Request) => isAdmin(req) || isApprovedCreator(req);
+const canPost = (req: Request) => isAdmin(req) || (isApprovedCreator(req) && hasAccess(req, "manager"));
 const isUrl = (v: unknown): v is string => typeof v === "string" && /^https?:\/\/\S+$/i.test(v) && v.length < 1000;
 
 // Per-user flood guard (in memory; resets on restart).

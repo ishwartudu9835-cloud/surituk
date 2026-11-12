@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
-import { eq } from "drizzle-orm";
-import { db, usersTable, creatorsTable, type User } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
+import { db, usersTable, creatorsTable, teamMembersTable, type User } from "@workspace/db";
 import { config } from "./config";
 
 const b64url = (buf: Buffer | string) => Buffer.from(buf).toString("base64url");
@@ -34,7 +34,7 @@ export const createSessionToken = (userId: number) => signToken({ uid: userId, t
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
-    interface Request { user?: User; creatorStatus?: string }
+    interface Request { user?: User; creatorStatus?: string; creatorAccess?: Access; creatorType?: string }
   }
 }
 
@@ -48,8 +48,17 @@ export async function loadUser(req: Request, _res: Response, next: NextFunction)
       if (user && !user.banned) {
         req.user = user;
         if (user.creatorId) {
-          const [c] = await db.select({ status: creatorsTable.status }).from(creatorsTable).where(eq(creatorsTable.id, user.creatorId));
+          const [c] = await db.select({ status: creatorsTable.status, type: creatorsTable.type, ownerUserId: creatorsTable.ownerUserId }).from(creatorsTable).where(eq(creatorsTable.id, user.creatorId));
           req.creatorStatus = c?.status;
+          req.creatorType = c?.type;
+          if (c?.ownerUserId === user.id) req.creatorAccess = "owner";
+          else {
+            const [m] = await db.select({ access: teamMembersTable.access }).from(teamMembersTable)
+              .where(and(eq(teamMembersTable.creatorId, user.creatorId), eq(teamMembersTable.userId, user.id), eq(teamMembersTable.status, "active")));
+            req.creatorAccess = (m?.access as Access | undefined) ?? undefined;
+            // Removed from the studio: they no longer act as it.
+            if (!m) { req.creatorStatus = "not_member"; }
+          }
         }
       }
     }
@@ -70,10 +79,32 @@ export function requireCreator(req: Request, res: Response, next: NextFunction) 
   if (req.creatorStatus === "banned") { res.status(403).json({ error: "Your creator account has been banned." }); return; }
   if (req.creatorStatus === "revoked") { res.status(403).json({ error: "Your creator access has been removed by Surituk. Check your notifications for details." }); return; }
   if (req.creatorStatus === "deleted") { res.status(403).json({ error: "This creator account was deleted." }); return; }
+  if (req.creatorStatus === "not_member") { res.status(403).json({ error: "You're no longer part of this studio. Switch to another account in Creator Studio." }); return; }
   next();
 }
 
 export const isApprovedCreator = (req: Request) => !!req.user?.creatorId && req.creatorStatus === "approved";
+
+/**
+ * Studio access levels, lowest to highest.
+ *  member  — credited on the studio page, can see the studio dashboard
+ *  editor  — upload and edit series and chapters
+ *  manager — editor + delete chapters, delete/reorder pages, add/remove members, post updates, edit studio profile
+ *  owner   — everything, incl. deleting stories or the studio and transferring ownership
+ */
+export type Access = "member" | "editor" | "manager" | "owner";
+const RANK: Record<Access, number> = { member: 0, editor: 1, manager: 2, owner: 3 };
+export function hasAccess(req: Request, level: Access): boolean {
+  if (req.user?.role === "admin") return true;
+  return RANK[req.creatorAccess ?? "member"] >= RANK[level] && !!req.creatorAccess;
+}
+/** Responds 403 and returns false when the person's studio access is below `level`. */
+export function needAccess(req: Request, res: Response, level: Access, what: string): boolean {
+  if (hasAccess(req, level)) return true;
+  const who = level === "owner" ? "the owner" : level === "manager" ? "the owner or a manager" : "team members with upload access";
+  res.status(403).json({ error: `Only ${who} can ${what}.` });
+  return false;
+}
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (req.user?.role !== "admin") { res.status(403).json({ error: "Admin only" }); return; }

@@ -1,3 +1,5 @@
+import { needAccess } from "../lib/auth";
+import { notifyAdmins } from "../lib/deletion";
 import { Router, type IRouter } from "express";
 import { desc, eq, sql } from "drizzle-orm";
 import { db, chaptersTable, mangaTable } from "@workspace/db";
@@ -64,6 +66,11 @@ router.post("/manga/:mangaId/chapters", requireCreator, async (req, res): Promis
     res.status(403).json({ error: "You can only add chapters to your own manga" });
     return;
   }
+  if (!needAccess(req, res, "editor", "upload chapters")) return;
+  if (req.body?.ownershipConfirmed !== true && req.user!.role !== "admin") {
+    res.status(400).json({ error: "Please confirm this chapter is your own original work (or you have the rights)." });
+    return;
+  }
 
   const { chapterNumber, title, pages, scheduledAt } = req.body;
   if (pages !== undefined && (!Array.isArray(pages) || pages.some((p: unknown) => typeof p !== "string"))) {
@@ -75,10 +82,16 @@ router.post("/manga/:mangaId/chapters", requireCreator, async (req, res): Promis
     return;
   }
 
+  // A new creator's first 2 chapters go to the admin review list (they're live meanwhile).
+  const [{ prior }] = await db.select({ prior: sql<number>`count(*)::int` }).from(chaptersTable)
+    .innerJoin(mangaTable, eq(chaptersTable.mangaId, mangaTable.id)).where(eq(mangaTable.creatorId, owned.creatorId));
+  const needsReview = prior < 2 && req.user!.role !== "admin";
+
   const [ch] = await db.insert(chaptersTable).values({
     mangaId,
     chapterNumber,
     title,
+    needsReview,
     pages: pages ?? [],
     isScheduled: !!scheduledAt,
     scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
@@ -87,6 +100,7 @@ router.post("/manga/:mangaId/chapters", requireCreator, async (req, res): Promis
   await db.update(mangaTable)
     .set({ chapterCount: sql`${mangaTable.chapterCount} + 1` })
     .where(eq(mangaTable.id, mangaId));
+  if (needsReview) void notifyAdmins(`🆕 New creator chapter to check: "${title}". See Admin → First chapters.`);
 
   const [series] = await db.select({ title: mangaTable.title, creatorId: mangaTable.creatorId, isPublished: mangaTable.isPublished }).from(mangaTable).where(eq(mangaTable.id, mangaId));
   if (series?.isPublished) void notifySubscribers(series.creatorId, `New chapter: "${series.title}" — Chapter ${chapterNumber}: ${title}`, mangaId);

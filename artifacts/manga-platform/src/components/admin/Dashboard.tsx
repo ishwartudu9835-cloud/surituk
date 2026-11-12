@@ -10,10 +10,11 @@ export type DashboardData = {
   content: { stories: number; hiddenStories: number; drafts: number; chapters: number; posts: number; commentsToday: number };
   reports: { open: number; copyright: number };
   deletions: { scheduled: number };
+  review: { chapters: number; transfers: number };
   signupsByDay: { day: string; n: number }[];
   recentUsers: { id: number; displayName: string; username: string; email: string | null; avatar: string; joinedAt: string }[];
   storage: { mode: string; ok: boolean; persistent: boolean; error?: string; advice: string };
-  settings: { newCreatorMode: string; signupsOpen: boolean; siteBanner: string; grievanceName: string; grievanceEmail: string };
+  settings: { newCreatorMode: string; signupsOpen: boolean; siteBanner: string; grievanceName: string; grievanceEmail: string; blockedTitles: string };
 };
 
 export const useDashboard = () => useQuery({ queryKey: ["admin-dashboard"], queryFn: () => api<DashboardData>("/admin/dashboard"), refetchInterval: 60_000 });
@@ -37,6 +38,8 @@ export function Dashboard() {
     d.reports.copyright > 0 && { icon: <Copyright className="w-4 h-4" />, text: `${d.reports.copyright} copyright claim${d.reports.copyright > 1 ? "s" : ""} waiting`, href: "/admin/reports?reason=copyright", tone: "text-red-300" },
     d.reports.open - d.reports.copyright > 0 && { icon: <Flag className="w-4 h-4" />, text: `${d.reports.open - d.reports.copyright} other report${d.reports.open - d.reports.copyright > 1 ? "s" : ""} to review`, href: "/admin/reports", tone: "text-amber-200" },
     d.creators.pendingApplications > 0 && { icon: <FileCheck2 className="w-4 h-4" />, text: `${d.creators.pendingApplications} creator application${d.creators.pendingApplications > 1 ? "s" : ""} waiting`, href: "/admin/applications", tone: "text-sky-300" },
+    d.review.chapters > 0 && { icon: <FileCheck2 className="w-4 h-4" />, text: `${d.review.chapters} new-creator chapter${d.review.chapters > 1 ? "s" : ""} to check for copying`, href: "/admin/first-chapters", tone: "text-amber-200" },
+    d.review.transfers > 0 && { icon: <FileCheck2 className="w-4 h-4" />, text: `${d.review.transfers} studio ownership transfer${d.review.transfers > 1 ? "s" : ""} waiting`, href: "/admin/creators?view=transfers", tone: "text-sky-300" },
     d.deletions.scheduled > 0 && { icon: <Trash2 className="w-4 h-4" />, text: `${d.deletions.scheduled} account deletion request${d.deletions.scheduled > 1 ? "s" : ""} scheduled`, href: "/admin/deletions", tone: "text-amber-200" },
     (!d.settings.grievanceName || !d.settings.grievanceEmail) && { icon: <AlertTriangle className="w-4 h-4" />, text: "Add the Grievance Officer's name and email (required by law)", href: "/admin/settings", tone: "text-red-300" },
     (!d.storage.ok || !d.storage.persistent) && { icon: <AlertTriangle className="w-4 h-4" />, text: "Photo storage needs attention", href: "/admin/settings", tone: "text-red-300" },

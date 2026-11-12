@@ -1,10 +1,13 @@
+import { needAccess, requireAuth } from "../lib/auth";
+import { requireTrusted } from "../lib/trust";
+import { checkTitle, titleError } from "../lib/piracy";
 import { assignMangaSlug } from "../lib/slug";
 import { Router, type IRouter } from "express";
 import { requireCreator, isApprovedCreator } from "../lib/auth";
 import { notifySubscribers } from "../lib/notify";
 import { desc, eq, ilike, and, sql, type SQL, or } from "drizzle-orm";
 import { visibleManga, canManage } from "../lib/visibility";
-import { db, mangaTable, creatorsTable, genresTable } from "@workspace/db";
+import { db, mangaLikesTable, bookmarksTable, mangaTable, creatorsTable, genresTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -81,6 +84,12 @@ router.post("/manga", requireCreator, async (req, res): Promise<void> => {
   if (!title || !genre) {
     res.status(400).json({ error: "title and genre are required" });
     return;
+  }
+  if (!needAccess(req, res, "editor", "create series")) return;
+  if (req.user!.role !== "admin") {
+    const hit = await checkTitle(String(title));
+    if (hit) { res.status(400).json({ error: titleError(hit) }); return; }
+    if (req.body?.ownershipConfirmed !== true) { res.status(400).json({ error: "Please confirm this story is your own original work (or you have the rights)." }); return; }
   }
   // Pending applicants can only create private drafts. Approved creators choose (default: draft).
   const publish = isApprovedCreator(req) && req.body?.publish === true;
@@ -337,18 +346,42 @@ router.get("/manga/:mangaId", async (req, res): Promise<void> => {
   });
 });
 
-router.post("/manga/:mangaId/like", async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.mangaId) ? req.params.mangaId[0] : req.params.mangaId;
-  const mangaId = parseInt(raw, 10);
-  if (isNaN(mangaId)) { res.status(400).json({ error: "Invalid manga id" }); return; }
-
-  const [m] = await db.update(mangaTable)
-    .set({ likes: sql`${mangaTable.likes} + 1` })
-    .where(eq(mangaTable.id, mangaId))
-    .returning({ likes: mangaTable.likes });
-
+/** One like per reader per story — tapping again removes it. */
+router.get("/manga/:mangaId/like", async (req, res): Promise<void> => {
+  const mangaId = parseInt(String(req.params.mangaId), 10);
+  const [m] = await db.select({ likes: mangaTable.likes }).from(mangaTable).where(eq(mangaTable.id, mangaId));
   if (!m) { res.status(404).json({ error: "Manga not found" }); return; }
-  res.json({ liked: true, totalLikes: m.likes });
+  const liked = req.user ? (await db.select({ u: mangaLikesTable.userId }).from(mangaLikesTable).where(and(eq(mangaLikesTable.mangaId, mangaId), eq(mangaLikesTable.userId, req.user.id)))).length > 0 : false;
+  const bookmarked = req.user ? (await db.select({ id: bookmarksTable.id }).from(bookmarksTable).where(and(eq(bookmarksTable.mangaId, mangaId), eq(bookmarksTable.userId, req.user.id)))).length > 0 : false;
+  res.json({ liked, totalLikes: m.likes, bookmarked });
+});
+
+router.post("/manga/:mangaId/like", requireAuth, async (req, res): Promise<void> => {
+  if (!requireTrusted(req, res)) return;
+  const mangaId = parseInt(String(req.params.mangaId), 10);
+  if (isNaN(mangaId)) { res.status(400).json({ error: "Invalid manga id" }); return; }
+  const [exists] = await db.select({ id: mangaTable.id }).from(mangaTable).where(eq(mangaTable.id, mangaId));
+  if (!exists) { res.status(404).json({ error: "Manga not found" }); return; }
+  const added = await db.insert(mangaLikesTable).values({ mangaId, userId: req.user!.id }).onConflictDoNothing().returning();
+  if (added.length) {
+    await db.update(mangaTable).set({ likes: sql`${mangaTable.likes} + 1` }).where(eq(mangaTable.id, mangaId));
+  } else {
+    await db.delete(mangaLikesTable).where(and(eq(mangaLikesTable.mangaId, mangaId), eq(mangaLikesTable.userId, req.user!.id)));
+    await db.update(mangaTable).set({ likes: sql`greatest(${mangaTable.likes} - 1, 0)` }).where(eq(mangaTable.id, mangaId));
+  }
+  const [m] = await db.select({ likes: mangaTable.likes }).from(mangaTable).where(eq(mangaTable.id, mangaId));
+  res.json({ liked: added.length > 0, totalLikes: m?.likes ?? 0 });
+});
+
+/** Save a story to My Library — tapping again removes it. */
+router.post("/manga/:mangaId/bookmark", requireAuth, async (req, res): Promise<void> => {
+  const mangaId = parseInt(String(req.params.mangaId), 10);
+  const [exists] = await db.select({ id: mangaTable.id }).from(mangaTable).where(eq(mangaTable.id, mangaId));
+  if (!exists) { res.status(404).json({ error: "Manga not found" }); return; }
+  const [b] = await db.select({ id: bookmarksTable.id }).from(bookmarksTable).where(and(eq(bookmarksTable.mangaId, mangaId), eq(bookmarksTable.userId, req.user!.id)));
+  if (b) await db.delete(bookmarksTable).where(eq(bookmarksTable.id, b.id));
+  else await db.insert(bookmarksTable).values({ mangaId, userId: req.user!.id });
+  res.json({ bookmarked: !b });
 });
 
 export default router;

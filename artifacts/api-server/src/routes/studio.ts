@@ -5,7 +5,8 @@ import {
   db, mangaTable, chaptersTable, creatorsTable, genresTable, bookmarksTable, readingHistoryTable, communityPostsTable,
   type Manga,
 } from "@workspace/db";
-import { requireCreator, isApprovedCreator } from "../lib/auth";
+import { requireCreator, isApprovedCreator, needAccess, hasAccess } from "../lib/auth";
+import { checkTitle, titleError } from "../lib/piracy";
 import { notifySubscribers } from "../lib/notify";
 import { desc } from "drizzle-orm";
 
@@ -43,12 +44,15 @@ router.get("/studio/series/:id", requireCreator, async (req, res): Promise<void>
 router.patch("/studio/series/:id", requireCreator, async (req, res): Promise<void> => {
   const m = await ownedSeries(req, res, num(req, "id"));
   if (!m) return;
+  if (!needAccess(req, res, "editor", "edit series")) return;
   const b = req.body ?? {};
   const patch: Partial<typeof mangaTable.$inferInsert> = { updatedAt: new Date() };
 
   if (b.title !== undefined) {
     const t = String(b.title).trim().slice(0, 150);
     if (!t) { res.status(400).json({ error: "Title can't be empty" }); return; }
+    const hit = t !== m.title ? await checkTitle(t) : null;
+    if (hit && req.user!.role !== "admin") { res.status(400).json({ error: titleError(hit) }); return; }
     patch.title = t;
   }
   if (b.description !== undefined) patch.description = String(b.description).trim().slice(0, 3000) || null;
@@ -92,6 +96,7 @@ router.patch("/studio/series/:id", requireCreator, async (req, res): Promise<voi
 router.delete("/studio/series/:id", requireCreator, async (req, res): Promise<void> => {
   const m = await ownedSeries(req, res, num(req, "id"));
   if (!m) return;
+  if (!needAccess(req, res, "owner", "delete a story")) return;
   await db.transaction(async tx => {
     await tx.delete(readingHistoryTable).where(eq(readingHistoryTable.mangaId, m.id));
     await tx.delete(bookmarksTable).where(eq(bookmarksTable.mangaId, m.id));
@@ -119,6 +124,7 @@ async function ownedChapter(req: Request, res: Response) {
 router.patch("/studio/chapters/:id", requireCreator, async (req, res): Promise<void> => {
   const ch = await ownedChapter(req, res);
   if (!ch) return;
+  if (!needAccess(req, res, "editor", "edit chapters")) return;
   const b = req.body ?? {};
   const patch: Partial<typeof chaptersTable.$inferInsert> = {};
   if (b.title !== undefined) {
@@ -138,6 +144,10 @@ router.patch("/studio/chapters/:id", requireCreator, async (req, res): Promise<v
     if (!Array.isArray(b.pages) || !b.pages.every(isUrl)) { res.status(400).json({ error: "Pages must be a list of image links" }); return; }
     if (b.pages.length === 0) { res.status(400).json({ error: "A chapter needs at least one page" }); return; }
     if (b.pages.length > 300) { res.status(400).json({ error: "Maximum 300 pages per chapter" }); return; }
+    // Adding pages at the end is upload work; removing or reordering pages needs a manager.
+    const old = ch.pages ?? [];
+    const appendOnly = b.pages.length >= old.length && old.every((p: string, i: number) => b.pages[i] === p);
+    if (!appendOnly && !hasAccess(req, "manager")) { res.status(403).json({ error: "Only the owner or a manager can delete or reorder pages." }); return; }
     patch.pages = b.pages;
   }
   const [updated] = await db.update(chaptersTable).set(patch).where(eq(chaptersTable.id, ch.id)).returning();
@@ -148,6 +158,7 @@ router.patch("/studio/chapters/:id", requireCreator, async (req, res): Promise<v
 router.delete("/studio/chapters/:id", requireCreator, async (req, res): Promise<void> => {
   const ch = await ownedChapter(req, res);
   if (!ch) return;
+  if (!needAccess(req, res, "manager", "delete chapters")) return;
   await db.delete(chaptersTable).where(eq(chaptersTable.id, ch.id));
   await db.update(mangaTable).set({ chapterCount: sql`greatest(${mangaTable.chapterCount} - 1, 0)`, updatedAt: new Date() }).where(eq(mangaTable.id, ch.mangaId));
   res.json({ ok: true });

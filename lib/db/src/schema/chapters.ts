@@ -12,6 +12,8 @@ export const chaptersTable = pgTable("chapters", {
   views: integer("views").notNull().default(0),
   isScheduled: boolean("is_scheduled").notNull().default(false),
   scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  /** A new creator's first chapters wait in the admin review list (they stay live meanwhile). */
+  needsReview: boolean("needs_review").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

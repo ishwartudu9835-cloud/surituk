@@ -44,8 +44,10 @@ export default function CreatorProfile() {
 
   if (!creator || notFound) return <div className="container py-20 text-center text-muted-foreground">Creator not found</div>;
 
+  const theme = (creator as { themeColor?: string | null }).themeColor;
   return (
-    <div>
+    <div style={theme ? ({ "--primary": hexToHsl(theme) } as React.CSSProperties) : undefined} data-theme-color={theme ?? undefined}>
+      {theme && <div className="h-1.5 w-full" style={{ background: theme }} />}
       {/* Banner */}
       <div className="relative h-48 md:h-72 w-full overflow-hidden bg-gradient-to-br from-primary/25 via-background to-accent/10 halftone">
         {creator.banner && <img src={creator.banner} alt="" className="w-full h-full object-cover opacity-60" />}
@@ -167,4 +169,19 @@ export default function CreatorProfile() {
       </div>
     </div>
   );
+}
+
+/** "#E1191F" -> "358 80% 49%" (the format the colour variables use). */
+function hexToHsl(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+  let h = 0, sat = 0;
+  if (max !== min) {
+    const d = max - min;
+    sat = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+  }
+  return `${Math.round(h)} ${Math.round(sat * 100)}% ${Math.round(l * 100)}%`;
 }

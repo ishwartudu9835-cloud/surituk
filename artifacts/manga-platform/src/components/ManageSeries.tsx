@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ImageUpload } from "@/components/ImageUpload";
-import { api, uploadFiles } from "@/lib/api";
+import { api, uploadFiles, canDo } from "@/lib/api";
 import { pdfToImages } from "@/lib/pdf";
 import { useAuth } from "@/lib/auth";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,6 +31,8 @@ const fromUrl = (url: string): PageItem => ({ key: `u${seq++}`, url, preview: ur
 const fromFile = (file: File): PageItem => ({ key: `f${seq++}`, file, preview: URL.createObjectURL(file) });
 
 function ChapterEditor({ chapter, onClose }: { chapter: Chapter; onClose: () => void }) {
+  const { me } = useAuth();
+  const canArrange = canDo(me, "manager");
   const qc = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(chapter.title);
@@ -125,11 +127,11 @@ function ChapterEditor({ chapter, onClose }: { chapter: Chapter; onClose: () => 
               <span className="absolute top-1 left-1 text-[10px] bg-black/75 rounded px-1">{i + 1}</span>
               {it.file && <span className="absolute top-1 right-1 text-[9px] bg-accent text-accent-foreground rounded px-1">NEW</span>}
               <div className="absolute inset-x-0 bottom-0 flex justify-center gap-1.5 p-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 bg-black/70">
-                <button type="button" title="Move left" onClick={() => move(i, -1)}><ArrowUp className="w-3.5 h-3.5 -rotate-90" /></button>
-                <button type="button" title="Replace this page" onClick={() => { replaceOne.current = i; oneInput.current?.click(); }}><Pencil className="w-3.5 h-3.5" /></button>
-                <button type="button" title="Insert pages before this" onClick={() => { setInsertAt(i); input.current?.click(); }}><FileUp className="w-3.5 h-3.5" /></button>
-                <button type="button" title="Delete page" onClick={() => setItems(items.filter((_, j) => j !== i))}><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>
-                <button type="button" title="Move right" onClick={() => move(i, 1)}><ArrowDown className="w-3.5 h-3.5 -rotate-90" /></button>
+                {canArrange && <button type="button" title="Move left" onClick={() => move(i, -1)}><ArrowUp className="w-3.5 h-3.5 -rotate-90" /></button>}
+                {canArrange && <button type="button" title="Replace this page" onClick={() => { replaceOne.current = i; oneInput.current?.click(); }}><Pencil className="w-3.5 h-3.5" /></button>}
+                {canArrange && <button type="button" title="Insert pages before this" onClick={() => { setInsertAt(i); input.current?.click(); }}><FileUp className="w-3.5 h-3.5" /></button>}
+                {canArrange && <button type="button" title="Delete page" onClick={() => setItems(items.filter((_, j) => j !== i))}><Trash2 className="w-3.5 h-3.5 text-red-400" /></button>}
+                {canArrange && <button type="button" title="Move right" onClick={() => move(i, 1)}><ArrowDown className="w-3.5 h-3.5 -rotate-90" /></button>}
               </div>
             </div>
           ))}
@@ -232,7 +234,7 @@ export function ManageSeries({ seriesId, onBack }: { seriesId: number; onBack: (
                   <p className="text-xs text-muted-foreground">{ch.pages.length} pages · {new Date(ch.createdAt).toLocaleDateString("en-IN")}</p>
                 </div>
                 <Button size="sm" variant="outline" onClick={() => setEditing(ch)}><Pencil className="w-4 h-4 mr-1.5" /> Edit pages</Button>
-                <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={() => deleteChapter(ch)} aria-label="Delete chapter"><Trash2 className="w-4 h-4" /></Button>
+                {canDo(me, "manager") && <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-300" onClick={() => deleteChapter(ch)} aria-label="Delete chapter"><Trash2 className="w-4 h-4" /></Button>}
               </div>
             ))}
             {sorted.length === 0 && <p className="text-muted-foreground py-4">No chapters yet. Use "Upload Chapter" to add one.</p>}
@@ -264,11 +266,11 @@ export function ManageSeries({ seriesId, onBack }: { seriesId: number; onBack: (
         </div>
       </form>
 
-      <div className="p-6 rounded-xl border border-red-500/30 bg-red-500/5">
+      {canDo(me, "owner") && <div className="p-6 rounded-xl border border-red-500/30 bg-red-500/5">
         <h2 className="text-lg font-bold text-red-400 mb-1">Delete this series</h2>
         <p className="text-sm text-muted-foreground mb-4">Deletes the series, all its chapters, readers' bookmarks and reading history. This can't be undone. Books you sell in the Store are not affected.</p>
         <Button variant="outline" className="border-red-500/50 text-red-400 hover:bg-red-500/10" onClick={() => { setDelText(""); setDelOpen(true); }}><Trash2 className="w-4 h-4 mr-2" /> Delete series</Button>
-      </div>
+      </div>}
 
       <Dialog open={delOpen} onOpenChange={setDelOpen}>
         <DialogContent className="max-w-sm">

@@ -2,12 +2,13 @@ import { Router, type IRouter, type Request } from "express";
 import { and, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
 import {
   db, usersTable, creatorsTable, mangaTable, chaptersTable, communityPostsTable, communityRepliesTable,
-  reportsTable, notificationsTable, accountDeletionsTable, creatorApplicationsTable, readingHistoryTable, bookmarksTable, genresTable,
+  reportsTable, notificationsTable, accountDeletionsTable, ownershipTransfersTable, teamMembersTable, creatorApplicationsTable, readingHistoryTable, bookmarksTable, genresTable,
 } from "@workspace/db";
 import { requireAdmin } from "../lib/auth";
 import { audit, getSetting, setSetting } from "../lib/creatorProgram";
 import { storageSelfTest } from "../lib/storage";
 import { deleteStory } from "../lib/deletion";
+import { blockedTitles } from "../lib/piracy";
 
 /**
  * Admin control centre: dashboard, users, stories, community, reports, notices, site settings.
@@ -48,6 +49,8 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res): Promise<void> =>
     count(db.select({ n }).from(mangaTable).where(eq(mangaTable.isPublished, false))),
     count(db.select({ n }).from(chaptersTable)),
   ]);
+  const chaptersToReview = await count(db.select({ n }).from(chaptersTable).where(eq(chaptersTable.needsReview, true)));
+  const transfersPending = await count(db.select({ n }).from(ownershipTransfersTable).where(eq(ownershipTransfersTable.status, "pending")));
   const deletionsScheduled = await count(db.select({ n }).from(accountDeletionsTable).where(eq(accountDeletionsTable.status, "scheduled")));
   const [openReports, copyrightReports, posts, commentsToday] = await Promise.all([
     count(db.select({ n }).from(reportsTable).where(eq(reportsTable.status, "open"))),
@@ -68,6 +71,7 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res): Promise<void> =>
     content: { stories, hiddenStories, drafts, chapters, posts, commentsToday },
     reports: { open: openReports, copyright: copyrightReports },
     deletions: { scheduled: deletionsScheduled },
+    review: { chapters: chaptersToReview, transfers: transfersPending },
     signupsByDay: (signupsByDay as unknown as { rows: { day: string; n: number }[] }).rows ?? signupsByDay,
     recentUsers: recentUsers.map(u => ({ ...u, joinedAt: iso(u.joinedAt) })),
     storage: await storageSelfTest(),
@@ -77,6 +81,7 @@ router.get("/admin/dashboard", requireAdmin, async (_req, res): Promise<void> =>
       siteBanner: await getSetting("site_banner", ""),
       grievanceName: await getSetting("grievance_name", ""),
       grievanceEmail: await getSetting("grievance_email", ""),
+      blockedTitles: (await blockedTitles()).join("\n"),
     },
   });
 });
@@ -402,9 +407,99 @@ router.patch("/admin/site-settings", requireAdmin, async (req: Request, res): Pr
     if (e && !/^\S+@\S+\.\S+$/.test(e)) { res.status(400).json({ error: "Enter a valid grievance email" }); return; }
     await setSetting("grievance_email", e); changed.grievanceEmail = e;
   }
+  if (typeof b.blockedTitles === "string") {
+    const list = b.blockedTitles.split("\n").map((x: string) => x.trim().slice(0, 100)).filter(Boolean).slice(0, 2000);
+    await setSetting("blocked_titles", list.join("\n")); changed.blockedTitles = `${list.length} titles`;
+  }
   if (typeof b.siteBanner === "string") { await setSetting("site_banner", b.siteBanner.trim().slice(0, 300)); changed.siteBanner = b.siteBanner.trim().slice(0, 300); }
   await audit(req.user!.id, "settings.update", "setting", undefined, changed);
   res.json({ ok: true });
+});
+
+/* ---------------- First chapters from new creators ---------------- */
+
+router.get("/admin/chapter-review", requireAdmin, async (_req, res): Promise<void> => {
+  const rows = await db.select({
+    id: chaptersTable.id, title: chaptersTable.title, chapterNumber: chaptersTable.chapterNumber, pages: chaptersTable.pages, createdAt: chaptersTable.createdAt,
+    mangaId: mangaTable.id, mangaTitle: mangaTable.title, mangaSlug: mangaTable.slug, adminHidden: mangaTable.adminHidden,
+    creatorId: creatorsTable.id, creatorName: creatorsTable.name, creatorSlug: creatorsTable.slug,
+  }).from(chaptersTable).innerJoin(mangaTable, eq(chaptersTable.mangaId, mangaTable.id)).innerJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id))
+    .where(eq(chaptersTable.needsReview, true)).orderBy(desc(chaptersTable.createdAt)).limit(200);
+  res.json(rows.map(r => ({ ...r, pages: (r.pages ?? []).slice(0, 6), pageCount: (r.pages ?? []).length, createdAt: iso(r.createdAt) })));
+});
+
+router.post("/admin/chapter-review/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = num(req.params.id);
+  const [ch] = await db.update(chaptersTable).set({ needsReview: false }).where(eq(chaptersTable.id, id)).returning({ mangaId: chaptersTable.mangaId });
+  if (!ch) { res.status(404).json({ error: "Chapter not found" }); return; }
+  await audit(req.user!.id, "chapter.review_ok", "chapter", id, {});
+  res.json({ ok: true });
+});
+
+/* ---------------- Studio ownership transfers ---------------- */
+
+router.get("/admin/transfers", requireAdmin, async (req, res): Promise<void> => {
+  const status = String(req.query.status ?? "pending");
+  const rows = await db.select({
+    id: ownershipTransfersTable.id, creatorId: ownershipTransfersTable.creatorId, note: ownershipTransfersTable.note, status: ownershipTransfersTable.status,
+    createdAt: ownershipTransfersTable.createdAt, fromUserId: ownershipTransfersTable.fromUserId, toUserId: ownershipTransfersTable.toUserId,
+    studio: creatorsTable.name,
+  }).from(ownershipTransfersTable).leftJoin(creatorsTable, eq(ownershipTransfersTable.creatorId, creatorsTable.id))
+    .where(status === "all" ? undefined : eq(ownershipTransfersTable.status, status)).orderBy(desc(ownershipTransfersTable.createdAt)).limit(100);
+  const ids = [...new Set(rows.flatMap(r => [r.fromUserId, r.toUserId]))];
+  const users = ids.length ? await db.select({ id: usersTable.id, displayName: usersTable.displayName, email: usersTable.email }).from(usersTable).where(inArray(usersTable.id, ids)) : [];
+  const u = new Map(users.map(x => [x.id, x]));
+  res.json(rows.map(r => ({ ...r, createdAt: iso(r.createdAt), from: u.get(r.fromUserId) ?? null, to: u.get(r.toUserId) ?? null })));
+});
+
+router.post("/admin/transfers/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = num(req.params.id);
+  const approve = req.body?.approve === true;
+  const [t] = await db.select().from(ownershipTransfersTable).where(and(eq(ownershipTransfersTable.id, id), eq(ownershipTransfersTable.status, "pending")));
+  if (!t) { res.status(404).json({ error: "No pending transfer" }); return; }
+  const [c] = await db.select({ name: creatorsTable.name }).from(creatorsTable).where(eq(creatorsTable.id, t.creatorId));
+  if (approve) {
+    const [{ owned }] = await db.select({ owned: n }).from(creatorsTable).where(and(eq(creatorsTable.ownerUserId, t.toUserId), eq(creatorsTable.type, "studio"), sql`${creatorsTable.status} not in ('deleted','pending')`));
+    if (owned >= 3) { res.status(400).json({ error: "The new owner already owns 3 studios" }); return; }
+    await db.update(creatorsTable).set({ ownerUserId: t.toUserId }).where(eq(creatorsTable.id, t.creatorId));
+    await db.update(teamMembersTable).set({ access: "owner" }).where(and(eq(teamMembersTable.creatorId, t.creatorId), eq(teamMembersTable.userId, t.toUserId)));
+    await db.update(teamMembersTable).set({ access: "manager", role: "editor" }).where(and(eq(teamMembersTable.creatorId, t.creatorId), eq(teamMembersTable.userId, t.fromUserId)));
+    await notice([t.toUserId], `You're now the owner of ${c?.name}.`);
+    await notice([t.fromUserId], `Ownership of ${c?.name} was transferred. You're now a manager there.`);
+  } else {
+    await notice([t.fromUserId], `The ownership transfer of ${c?.name} was not approved.${req.body?.reason ? ` Reason: ${String(req.body.reason).slice(0, 300)}` : ""}`);
+  }
+  await db.update(ownershipTransfersTable).set({ status: approve ? "approved" : "rejected", decidedAt: new Date() }).where(eq(ownershipTransfersTable.id, id));
+  await audit(req.user!.id, approve ? "transfer.approve" : "transfer.reject", "creator", t.creatorId, { from: t.fromUserId, to: t.toUserId });
+  res.json({ ok: true });
+});
+
+/* ---------------- Data export (safety copy) ---------------- */
+
+function csv(rows: Record<string, unknown>[]): string {
+  if (!rows.length) return "";
+  const cols = Object.keys(rows[0]);
+  const cell = (v: unknown) => {
+    const s = v instanceof Date ? v.toISOString() : Array.isArray(v) ? v.join(" | ") : v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  return [cols.join(","), ...rows.map(r => cols.map(c => cell(r[c])).join(","))].join("\n");
+}
+
+/** Download a CSV copy: creators, stories, chapters (with page image links), posts or users. */
+router.get("/admin/export/:what", requireAdmin, async (req, res): Promise<void> => {
+  const what = String(req.params.what);
+  let rows: Record<string, unknown>[] = [];
+  if (what === "creators") rows = await db.select({ id: creatorsTable.id, name: creatorsTable.name, type: creatorsTable.type, status: creatorsTable.status, city: creatorsTable.city, state: creatorsTable.state, followers: creatorsTable.followers, stories: creatorsTable.totalManga, avatar: creatorsTable.avatar, banner: creatorsTable.banner, ownerEmail: usersTable.email, joinedAt: creatorsTable.joinedAt }).from(creatorsTable).leftJoin(usersTable, eq(creatorsTable.ownerUserId, usersTable.id));
+  else if (what === "stories") rows = await db.select({ id: mangaTable.id, title: mangaTable.title, creator: creatorsTable.name, genre: mangaTable.genre, language: mangaTable.language, published: mangaTable.isPublished, unlisted: mangaTable.adminHidden, mature: mangaTable.isMature, views: mangaTable.views, likes: mangaTable.likes, rating: mangaTable.rating, cover: mangaTable.coverImage, banner: mangaTable.bannerImage, createdAt: mangaTable.createdAt }).from(mangaTable).leftJoin(creatorsTable, eq(mangaTable.creatorId, creatorsTable.id));
+  else if (what === "chapters") rows = await db.select({ id: chaptersTable.id, story: mangaTable.title, number: chaptersTable.chapterNumber, title: chaptersTable.title, pages: chaptersTable.pages, createdAt: chaptersTable.createdAt }).from(chaptersTable).leftJoin(mangaTable, eq(chaptersTable.mangaId, mangaTable.id));
+  else if (what === "posts") rows = await db.select({ id: communityPostsTable.id, type: communityPostsTable.type, title: communityPostsTable.title, content: communityPostsTable.content, images: communityPostsTable.images, creator: creatorsTable.name, likes: communityPostsTable.likes, comments: communityPostsTable.replies, hidden: communityPostsTable.hidden, createdAt: communityPostsTable.createdAt }).from(communityPostsTable).leftJoin(creatorsTable, eq(communityPostsTable.creatorId, creatorsTable.id));
+  else if (what === "users") rows = await db.select({ id: usersTable.id, name: usersTable.displayName, username: usersTable.username, email: usersTable.email, role: usersTable.role, restricted: usersTable.blocked, banned: usersTable.banned, joinedAt: usersTable.joinedAt }).from(usersTable).where(sql`${usersTable.deletedAt} is null`);
+  else { res.status(400).json({ error: "Unknown export" }); return; }
+  await audit(req.user!.id, "export", what, undefined, { rows: rows.length });
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="surituk-${what}-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.send("\uFEFF" + csv(rows));
 });
 
 /** Public: banner shown at the top of every page (set by admins). */

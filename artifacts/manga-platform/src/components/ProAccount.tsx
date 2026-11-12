@@ -1,3 +1,4 @@
+import { useIdentities } from "@/components/StudioTools";
 import { useEffect, useRef, useState } from "react";
 import { IMAGE_ACCEPT, isImageFile } from "@/lib/image";
 import { Link } from "wouter";
@@ -214,7 +215,10 @@ export function ProAccount({ inviteToken }: { inviteToken?: string }) {
   const { refresh } = useAuth();
   const { data: s, isLoading, refetch } = useQuery({ queryKey: ["pro-status"], queryFn: () => api<Status>("/pro/status") });
   const { data: invite } = useQuery({ queryKey: ["invite", inviteToken], queryFn: () => api<{ valid: boolean }>(`/pro/invite/${inviteToken}`), enabled: !!inviteToken });
-  const [type, setType] = useState<"individual" | "studio" | null>(null);
+  const newParam = new URLSearchParams(window.location.search).get("new");
+  const [type, setType] = useState<"individual" | "studio" | null>(newParam === "studio" || newParam === "individual" ? newParam : null);
+  const { data: ids } = useIdentities();
+  const access = ids?.identities.find(i => i.active)?.access;
   const [editing, setEditing] = useState(false);
 
   useEffect(() => { if (s?.application?.status === "rejected") setType(null); }, [s?.application?.status]);
@@ -225,17 +229,46 @@ export function ProAccount({ inviteToken }: { inviteToken?: string }) {
   const app = s.application;
   const c = s.creator;
 
-  if (c?.status === "approved") {
+  const openApp = app && (app.status === "pending" || app.status === "more_info");
+  if (c?.status === "approved" && !type) {
+    const l = ids?.limits;
     return (
       <div className="space-y-5">
+        {openApp && (
+          <div className="rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm">
+            Your new {app!.type === "studio" ? "studio" : "creator ID"} application is {app!.status === "pending" ? `under review (day ${app!.day} of ${app!.reviewDays})` : "waiting for more information"}.
+            {app!.status === "more_info" && <button onClick={() => { setEditing(true); setType(app!.type); }} className="underline ml-1">Update it</button>}
+          </div>
+        )}
         <div className={`${card} flex flex-col sm:flex-row sm:items-center gap-4 border-green-500/30`}>
           <CheckCircle2 className="w-10 h-10 text-green-400 shrink-0" />
           <div className="flex-1">
             <h3 className="text-lg font-bold">{c.type === "studio" ? "Studio" : "Creator"} account active — {c.name}</h3>
-            <p className="text-sm text-muted-foreground">{s.teamRole ? `Your role: ${s.teamRole}. ` : ""}{c.isVerified ? "✓ Verified — your uploads publish directly." : "Get Verified after 2–3 approved works to publish directly."}</p>
+            <p className="text-sm text-muted-foreground">{access ? `Your access: ${access === "editor" ? "can upload & edit" : access}. ` : ""}{c.isVerified ? "✓ Verified — your uploads publish directly." : "Get Verified after 2–3 approved works to publish directly."}</p>
           </div>
           <Button asChild><Link href="/creator-dashboard"><PenTool className="w-4 h-4 mr-2" /> Open Creator Studio</Link></Button>
         </div>
+        {ids && (
+          <div className={card}>
+            <h3 className="font-bold mb-3">Your creator accounts</h3>
+            <ul className="space-y-2 mb-4">
+              {ids.identities.map(i => (
+                <li key={i.id} className="flex items-center gap-3 text-sm">
+                  <img src={i.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
+                  <span className="flex-1 min-w-0 truncate">{i.name}</span>
+                  <span className="text-xs text-muted-foreground">{i.type === "studio" ? "Studio" : "Individual"} — {i.status === "pending" ? "under review" : i.access}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground mb-3">One individual creator ID, up to {l?.maxStudios} studios of your own, and membership in up to {l?.maxMemberships} other studios.</p>
+            {!openApp && (
+              <div className="flex flex-wrap gap-2">
+                {l && l.individual === 0 && <Button variant="outline" onClick={() => setType("individual")} data-testid="add-individual"><User className="w-4 h-4 mr-2" />Create individual creator ID</Button>}
+                {l && l.studiosOwned < l.maxStudios && <Button variant="outline" onClick={() => setType("studio")} data-testid="add-studio"><Users className="w-4 h-4 mr-2" />Open a studio ({l.studiosOwned}/{l.maxStudios})</Button>}
+              </div>
+            )}
+          </div>
+        )}
         <Referrals />
       </div>
     );
@@ -244,7 +277,7 @@ export function ProAccount({ inviteToken }: { inviteToken?: string }) {
     return <div className={`${card} border-red-500/40`}><XCircle className="w-8 h-8 text-red-400 mb-2" /><h3 className="font-bold">{c.status === "revoked" ? "Creator access removed" : `Creator account ${c.status}`}</h3><p className="text-sm text-muted-foreground">Check your notifications for the reason. Contact the <Link href="/grievance" className="text-primary underline">Grievance Officer</Link> if you think this is a mistake.</p></div>;
   }
 
-  if (app && (app.status === "pending" || (app.status === "more_info" && !editing))) {
+  if (c?.status !== "approved" && app && (app.status === "pending" || (app.status === "more_info" && !editing))) {
     const pct = Math.round((app.day / app.reviewDays) * 100);
     return (
       <div className="space-y-5">

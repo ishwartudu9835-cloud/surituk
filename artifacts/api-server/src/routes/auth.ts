@@ -1,3 +1,4 @@
+import { needAccess, hasAccess } from "../lib/auth";
 import { getSetting } from "../lib/creatorProgram";
 import { isDisposableEmail } from "../lib/trust";
 import crypto from "node:crypto";
@@ -190,6 +191,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   res.json({
     ...publicUser(u),
     creator: creator ? {
+      access: req.creatorAccess ?? null, themeColor: creator.themeColor, slug: creator.slug,
       id: creator.id, name: creator.name, type: creator.type, status: creator.status, studioName: creator.studioName, bio: creator.bio,
       avatar: creator.avatar, banner: creator.banner, city: creator.city, state: creator.state, isVerified: creator.isVerified,
       instagramUrl: creator.instagramUrl, twitterUrl: creator.twitterUrl, youtubeUrl: creator.youtubeUrl, websiteUrl: creator.websiteUrl,
@@ -206,10 +208,14 @@ router.patch("/auth/me", requireAuth, async (req, res): Promise<void> => {
   res.json(publicUser(u));
 });
 
+/** Accent colours a studio can pick for its page. */
+export const THEMES = ["#E1191F", "#F4B227", "#2E86AB", "#1B998B", "#6A4C93", "#F25F5C", "#FF8C42", "#3D5A80"];
+
 /** Update my creator / studio profile. Becoming a creator happens only through the application (routes/pro.ts). */
 router.post("/creators/me", requireAuth, async (req, res): Promise<void> => {
   const u = req.user!;
   if (!u.creatorId) { res.status(400).json({ error: "Apply for a Professional Account in Settings first" }); return; }
+  if (!needAccess(req, res, "manager", "edit the studio profile")) return;
   const b = req.body ?? {};
   const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : undefined);
   const url = (v: unknown) => (v === "" ? null : typeof v === "string" && /^https?:\/\//.test(v.trim()) ? v.trim().slice(0, 500) : undefined);
@@ -231,6 +237,12 @@ router.post("/creators/me", requireAuth, async (req, res): Promise<void> => {
     patch.upiId = upi || null;
   }
   const payoutName = str(b.payoutName, 80); if (payoutName !== undefined) patch.payoutName = payoutName || null;
+  if (b.themeColor !== undefined) {
+    if (req.creatorType !== "studio") { res.status(403).json({ error: "Page themes are a studio feature" }); return; }
+    if (b.themeColor !== null && !THEMES.includes(b.themeColor)) { res.status(400).json({ error: "Pick one of the theme colours" }); return; }
+    patch.themeColor = b.themeColor;
+  }
+  if ((patch.upiId !== undefined || patch.payoutName !== undefined) && !hasAccess(req, "owner")) { res.status(403).json({ error: "Only the owner can change payout details" }); return; }
   const [c] = await db.update(creatorsTable).set(patch).where(eq(creatorsTable.id, u.creatorId)).returning();
   res.json(c);
 });

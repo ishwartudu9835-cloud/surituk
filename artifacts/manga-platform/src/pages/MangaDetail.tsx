@@ -1,18 +1,18 @@
-import { Link, useParams } from "wouter";
+import { Link, useParams, useLocation } from "wouter";
 import { ReportButton } from "@/components/ReportButton";
 import { StoryRating } from "@/components/StarRating";
 import { useResolvedId, useCanonicalPath, mangaHref, creatorHrefFromManga, formatCount } from "@/lib/links";
 import { SubscribeButton } from "@/components/SubscribeButton";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { api, type HistoryItem } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { resumeHref } from "@/components/ReaderRows";
 import { AdSlot } from "@/components/AdSlot";
-import { useGetManga, useListChapters, useLikeManga, useGetTrendingManga, getGetMangaQueryKey, getListChaptersQueryKey } from "@workspace/api-client-react";
+import { useGetManga, useListChapters, useGetTrendingManga, getGetMangaQueryKey, getListChaptersQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, Eye, BookOpen, Star, ArrowRight, Clock } from "lucide-react";
+import { Heart, Eye, BookOpen, Star, ArrowRight, Clock, Bookmark } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -22,25 +22,29 @@ export default function MangaDetail() {
   const { id, notFound, loading: resolving } = useResolvedId("manga", mangaId);
   const { data: manga, isLoading, error } = useGetManga(id, { query: { enabled: !!id, queryKey: getGetMangaQueryKey(id), retry: false } });
   const { me } = useAuth();
+  const [, navigate] = useLocation();
   const { data: history } = useQuery({ queryKey: ["history", me?.id], queryFn: () => api<HistoryItem[]>("/me/history"), enabled: !!me });
   const mine = history?.find(h => h.id === id);
   const { data: chapters } = useListChapters(id, { query: { enabled: !!id, queryKey: getListChaptersQueryKey(id) } });
   const { data: trending } = useGetTrendingManga({ limit: 6 });
-  const likeMutation = useLikeManga();
+  const reaction = useQuery({ queryKey: ["reaction", id, me?.id ?? null], queryFn: () => api<{ liked: boolean; totalLikes: number; bookmarked: boolean }>(`/manga/${id}/like`), enabled: !!id });
+  const [reactErr, setReactErr] = useState("");
+  const likeMutation = useMutation({
+    mutationFn: () => api<{ liked: boolean; totalLikes: number }>(`/manga/${id}/like`, { method: "POST" }),
+    onSuccess: r => { setReactErr(""); queryClient.setQueryData(["reaction", id, me?.id ?? null], (o: { bookmarked: boolean } | undefined) => ({ bookmarked: o?.bookmarked ?? false, ...r })); },
+    onError: (e: Error) => setReactErr(e.message),
+  });
+  const bookmarkMutation = useMutation({
+    mutationFn: () => api<{ bookmarked: boolean }>(`/manga/${id}/bookmark`, { method: "POST" }),
+    onSuccess: r => { setReactErr(""); queryClient.setQueryData(["reaction", id, me?.id ?? null], (o: { liked: boolean; totalLikes: number } | undefined) => ({ liked: o?.liked ?? false, totalLikes: o?.totalLikes ?? 0, ...r })); queryClient.invalidateQueries({ queryKey: ["library"] }); },
+    onError: (e: Error) => setReactErr(e.message),
+  });
   const slug = (manga as { slug?: string | null } | undefined)?.slug;
   useCanonicalPath(mangaId, slug, k => `/manga/${k}`);
   const queryClient = useQueryClient();
-  const [liked, setLiked] = useState(false);
-
-  const handleLike = () => {
-    if (liked) return;
-    likeMutation.mutate({ mangaId: id }, {
-      onSuccess: () => {
-        setLiked(true);
-        queryClient.invalidateQueries({ queryKey: getGetMangaQueryKey(id) });
-      }
-    });
-  };
+  const liked = reaction.data?.liked ?? false;
+  const bookmarked = reaction.data?.bookmarked ?? false;
+  const needLogin = () => navigate(`/login?next=${encodeURIComponent(window.location.pathname)}`);
 
   if (isLoading || resolving) {
     return (
@@ -155,15 +159,29 @@ export default function MangaDetail() {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={handleLike}
-                disabled={liked || likeMutation.isPending}
+                onClick={() => (me ? likeMutation.mutate() : needLogin())}
+                disabled={likeMutation.isPending}
+                aria-pressed={liked}
                 className={liked ? "border-red-500/50 text-red-400" : ""}
                 data-testid="button-like"
               >
                 <Heart className={`w-4 h-4 mr-2 ${liked ? "fill-red-400 text-red-400" : ""}`} />
-                {liked ? "Liked" : "Like"}
+                {liked ? "Liked" : "Like"} · {reaction.data?.totalLikes ?? manga.likes}
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => (me ? bookmarkMutation.mutate() : needLogin())}
+                disabled={bookmarkMutation.isPending}
+                aria-pressed={bookmarked}
+                className={bookmarked ? "border-[var(--brand-haldi)]/60 text-[var(--brand-haldi)]" : ""}
+                data-testid="button-bookmark"
+              >
+                <Bookmark className={`w-4 h-4 mr-2 ${bookmarked ? "fill-current" : ""}`} />
+                {bookmarked ? "Saved" : "Save to library"}
               </Button>
             </div>
+            {reactErr && <p className="text-sm text-red-400 mt-2">{reactErr}{/profile/i.test(reactErr) && <> — <Link href="/welcome" className="underline">finish setup</Link></>}</p>}
           </div>
         </div>
 

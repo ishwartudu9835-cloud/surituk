@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Send, CheckCircle, AlertTriangle } from "lucide-react";
+import { Loader2, Send, CheckCircle, AlertTriangle, Download } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +72,20 @@ export function Notices() {
 
 /* ---------------- Site settings ---------------- */
 
+/** CSV download that sends the admin's login token. */
+async function download(what: string) {
+  const token = localStorage.getItem("surituk.token") ?? "";
+  const base = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+  const r = await fetch(`${base}/api/admin/export/${what}`, { headers: { authorization: `Bearer ${token}` } });
+  if (!r.ok) { alert("Export failed"); return; }
+  const blob = await r.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `surituk-${what}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
 export function SiteSettings() {
   const qc = useQueryClient();
   const { data: d } = useDashboard();
@@ -79,6 +93,8 @@ export function SiteSettings() {
   const [gName, setGName] = useState("");
   const [gEmail, setGEmail] = useState("");
   const [gErr, setGErr] = useState("");
+  const [titles, setTitles] = useState("");
+  useEffect(() => { if (d) setTitles(d.settings.blockedTitles); }, [d?.settings.blockedTitles]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (d) { setGName(d.settings.grievanceName); setGEmail(d.settings.grievanceEmail); } }, [d?.settings.grievanceName, d?.settings.grievanceEmail]); // eslint-disable-line react-hooks/exhaustive-deps
   const [saved, setSaved] = useState("");
   useEffect(() => { if (d) setBanner(d.settings.siteBanner); }, [d?.settings.siteBanner]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -113,6 +129,21 @@ export function SiteSettings() {
         </div>
         {gErr && <p className="text-sm text-red-400">{gErr}</p>}
         <Button onClick={() => { setGErr(""); save({ grievanceName: gName, grievanceEmail: gEmail }, "Grievance Officer saved").catch(e => setGErr((e as Error).message)); }} data-testid="grievance-save">Save</Button>
+      </section>
+
+      <section className={`${card} p-4 sm:p-5 space-y-3`}>
+        <div><h3 className="text-base">Blocked titles (piracy guard)</h3><p className="text-sm text-muted-foreground">Series can't be created with these names — famous published works. One per line. Stories reported by 3 different people are also hidden automatically until you review them.</p></div>
+        <Textarea rows={8} value={titles} onChange={e => setTitles(e.target.value)} className="font-mono text-xs" data-testid="blocked-titles" />
+        <Button onClick={() => save({ blockedTitles: titles }, "Blocked titles saved")}>Save list</Button>
+      </section>
+
+      <section className={`${card} p-4 sm:p-5 space-y-3`}>
+        <div><h3 className="text-base">Export data</h3><p className="text-sm text-muted-foreground">Download a safety copy as a spreadsheet (CSV). Images and PDFs are listed as links to your storage.</p></div>
+        <div className="flex flex-wrap gap-2">
+          {(["creators", "stories", "chapters", "posts", "users"] as const).map(w => (
+            <Button key={w} variant="outline" size="sm" onClick={() => download(w)} data-testid={`export-${w}`}><Download className="w-4 h-4 mr-1.5" />{w[0].toUpperCase() + w.slice(1)}</Button>
+          ))}
+        </div>
       </section>
 
       <section className={`${card} p-4 sm:p-5 space-y-3`}>

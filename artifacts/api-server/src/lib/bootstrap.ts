@@ -87,6 +87,25 @@ export async function runMigrations() {
       resolved_at timestamptz
     )`,
     `CREATE INDEX IF NOT EXISTS reports_status_idx ON reports (status, created_at DESC)`,
+    // --- studios: roles, transfers, themes, likes, first-chapter review ---
+    `ALTER TABLE team_members ADD COLUMN IF NOT EXISTS access text NOT NULL DEFAULT 'editor'`,
+    `UPDATE team_members SET access = 'owner' WHERE role = 'owner' AND access <> 'owner'`,
+    `INSERT INTO team_members (creator_id, user_id, name, email, role, access, status)
+       SELECT c.id, u.id, u.display_name, coalesce(u.email, ''), 'owner', 'owner', 'active'
+       FROM creators c JOIN users u ON u.id = c.owner_user_id
+       WHERE c.status <> 'deleted' AND NOT EXISTS (SELECT 1 FROM team_members t WHERE t.creator_id = c.id AND t.user_id = u.id)`,
+    `CREATE TABLE IF NOT EXISTS ownership_transfers (
+      id serial PRIMARY KEY, creator_id integer NOT NULL, from_user_id integer NOT NULL, to_user_id integer NOT NULL,
+      note text, status text NOT NULL DEFAULT 'pending', created_at timestamptz NOT NULL DEFAULT now(), decided_at timestamptz
+    )`,
+    `ALTER TABLE creators ADD COLUMN IF NOT EXISTS theme_color text`,
+    `ALTER TABLE chapters ADD COLUMN IF NOT EXISTS needs_review boolean NOT NULL DEFAULT false`,
+    `CREATE TABLE IF NOT EXISTS manga_likes (
+      manga_id integer NOT NULL REFERENCES manga(id) ON DELETE CASCADE,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (manga_id, user_id)
+    )`,
     // --- account deletion + creator hide ---
     `ALTER TABLE creators ADD COLUMN IF NOT EXISTS hidden boolean NOT NULL DEFAULT false`,
     `ALTER TABLE creators ADD COLUMN IF NOT EXISTS approved_at timestamptz`,

@@ -4,7 +4,7 @@ import { Link, Redirect, useParams } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Check, X, HelpCircle, Copy, ExternalLink, Loader2, ShieldCheck, BadgeCheck, ChevronDown, ChevronUp, Megaphone, AlertOctagon, Undo2, PauseCircle, Ban,
-  User as UserIcon, Trash2, EyeOff, Eye, UserMinus, LayoutDashboard, Flag, Users as UsersIcon, PenTool, FileCheck2, BookOpen, MessagesSquare, Settings as SettingsIcon, ScrollText, Menu, LogOut,
+  User as UserIcon, ScanEye, Trash2, EyeOff, Eye, UserMinus, LayoutDashboard, Flag, Users as UsersIcon, PenTool, FileCheck2, BookOpen, MessagesSquare, Settings as SettingsIcon, ScrollText, Menu, LogOut,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { card as cardBase, Filters, Empty, Pill, useConfirm, Act } from "@/components/admin/shared";
@@ -14,6 +14,7 @@ import { Users } from "@/components/admin/Users";
 import { Stories, CommunityAdmin } from "@/components/admin/Content";
 import { Notices, SiteSettings } from "@/components/admin/NoticesSettings";
 import { Deletions } from "@/components/admin/Deletions";
+import { FirstChapters, Transfers } from "@/components/admin/Review";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -133,7 +134,7 @@ function Creators() {
   const qc = useQueryClient();
   const { ask, node } = useConfirm();
   const [status, setStatus] = useState<"all" | "approved" | "pending" | "suspended" | "revoked" | "banned" | "deleted">("all");
-  const [view, setView] = useState<"list" | "add">("list");
+  const [view, setView] = useState<"list" | "transfers" | "add">(new URLSearchParams(window.location.search).get("view") === "transfers" ? "transfers" : "list");
   const { data } = useQuery({ queryKey: ["admin-creators", status], queryFn: () => api<Creator[]>(`/admin/creators?status=${status}`) });
   const refresh = () => { qc.invalidateQueries({ queryKey: ["admin-creators"] }); qc.invalidateQueries({ queryKey: ["admin-dashboard"] }); };
   async function patch(id: number, body: Record<string, unknown>) {
@@ -142,8 +143,8 @@ function Creators() {
   }
   return (
     <div className="space-y-4">
-      <Filters value={view} onChange={setView} options={[["list", "All creators"], ["add", "Add creator & invite links"]]} />
-      {view === "add" ? <AddAndInvite /> : (
+      <Filters value={view} onChange={setView} options={[["list", "All creators"], ["transfers", "Ownership transfers"], ["add", "Add creator & invite links"]]} />
+      {view === "transfers" ? <Transfers /> : view === "add" ? <AddAndInvite /> : (
         <>
           <Filters value={status} onChange={setStatus} options={[["all", "All"], ["approved", "Active"], ["pending", "Pending"], ["suspended", "Suspended"], ["revoked", "Powers removed"], ["banned", "Banned"], ["deleted", "Deleted"]]} />
           <ul className="space-y-3">
@@ -162,7 +163,7 @@ function Creators() {
                 </div>
                 <p className="text-xs text-muted-foreground">{c.totalManga} stories, {c.totalViews.toLocaleString("en-IN")} views, {c.followers} subscribers{c.strikes ? `, ${c.strikes} of 3 strikes` : ""}</p>
                 <div className="flex flex-wrap gap-2">
-                  <Act onClick={() => patch(c.id, { isVerified: !c.isVerified })}><ShieldCheck className="w-3.5 h-3.5" />{c.isVerified ? "Remove verified" : "Verify"}</Act>
+                  {c.type === "studio" && <Act onClick={() => patch(c.id, { isVerified: !c.isVerified })}><ShieldCheck className="w-3.5 h-3.5" />{c.isVerified ? "Remove verified" : "Verify"}</Act>}
                   {c.type === "studio" && <Act onClick={() => patch(c.id, { isRegisteredStudio: !c.isRegisteredStudio })}><BadgeCheck className="w-3.5 h-3.5" />{c.isRegisteredStudio ? "Remove registered" : "Registered studio"}</Act>}
                   <Act onClick={() => ask({ title: `Send a notice to ${c.name}`, reasonLabel: "Message", confirmLabel: "Send", run: async m => { if (m.trim().length < 3) throw new Error("Write a message"); await api("/admin/notices", { body: { target: "creator", creatorId: c.id, message: m } }); } })}><Megaphone className="w-3.5 h-3.5" />Notice</Act>
                   {c.status === "approved" && <Act onClick={() => ask({ title: `Strike ${c.name}?`, body: "3 strikes suspends the account. They get your reason.", reasonLabel: "Reason (required)", confirmLabel: "Give strike", danger: true, run: async r => { if (!r.trim()) throw new Error("Write a reason"); await api(`/admin/creators/${c.id}/strike`, { body: { reason: r } }); refresh(); } })} testid={`strike-${c.id}`}><AlertOctagon className="w-3.5 h-3.5" />Strike</Act>}
@@ -270,6 +271,7 @@ const SECTIONS = [
   { id: "creators", label: "Creators", icon: PenTool },
   { id: "applications", label: "Applications", icon: FileCheck2 },
   { id: "stories", label: "Stories", icon: BookOpen },
+  { id: "first-chapters", label: "First chapters", icon: ScanEye },
   { id: "community", label: "Community", icon: MessagesSquare },
   { id: "deletions", label: "Deletion requests", icon: Trash2 },
   { id: "notices", label: "Send notice", icon: Megaphone },
@@ -307,7 +309,7 @@ export default function Admin() {
   if (!me) return <Redirect to="/login?next=/admin" />;
   if (!isAdmin) return <div className="min-h-screen flex items-center justify-center text-muted-foreground p-6 text-center">This area is for Surituk admins only. <Link href="/" className="text-primary ml-1">Go home</Link></div>;
 
-  const counts: Record<string, number> = { reports: d?.reports.open ?? 0, applications: d?.creators.pendingApplications ?? 0, deletions: d?.deletions?.scheduled ?? 0 };
+  const counts: Record<string, number> = { reports: d?.reports.open ?? 0, applications: d?.creators.pendingApplications ?? 0, deletions: d?.deletions?.scheduled ?? 0, "first-chapters": d?.review?.chapters ?? 0, creators: d?.review?.transfers ?? 0 };
   const section = SECTIONS.find(x => x.id === current) ?? SECTIONS[0];
   const brand = (
     <Link href="/admin" className="flex items-center gap-2.5 px-3">
@@ -361,6 +363,7 @@ export default function Admin() {
         {current === "creators" && <Creators />}
         {current === "applications" && <Applications />}
         {current === "stories" && <Stories />}
+        {current === "first-chapters" && <FirstChapters />}
         {current === "community" && <CommunityAdmin />}
         {current === "deletions" && <Deletions />}
         {current === "notices" && <Notices />}

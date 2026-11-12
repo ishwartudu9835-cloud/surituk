@@ -9,3 +9,10 @@ export const mangaRatingsTable = pgTable("manga_ratings", {
   stars: smallint("stars").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, t => [primaryKey({ columns: [t.mangaId, t.userId] })]);
+
+/** One like per reader per story. */
+export const mangaLikesTable = pgTable("manga_likes", {
+  mangaId: integer("manga_id").notNull().references(() => mangaTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.mangaId, t.userId] })]);
