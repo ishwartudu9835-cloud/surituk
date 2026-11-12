@@ -72,14 +72,14 @@ export function AccountSwitcher({ compact = false }: { compact?: boolean }) {
 
 /* ---------------- Studio team ---------------- */
 
-type Member = { id: number; userId: number | null; name: string; email?: string; role: string; access: string; status: string; isMe: boolean };
+type Member = { id: number; userId: number | null; name: string; email?: string; role: string; access: string; canPost: boolean; status: string; isMe: boolean };
 
 export function StudioTeam() {
   const { me, refresh } = useAuth();
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ["studio-team", me?.creatorId], queryFn: () => api<Member[]>("/pro/team") });
   const { data: transfer } = useQuery({ queryKey: ["studio-transfer", me?.creatorId], queryFn: () => api<{ id: number; toName: string } | null>("/pro/transfer"), enabled: canDo(me, "owner") });
-  const [f, setF] = useState({ name: "", email: "", role: "artist", access: "editor" });
+  const [f, setF] = useState({ name: "", email: "", role: "artist", access: "editor", canPost: false });
   const [msg, setMsg] = useState<{ ok: boolean; t: string } | null>(null);
   const isOwner = me?.creator?.access === "owner";
   const isManager = canDo(me, "manager");
@@ -92,9 +92,10 @@ export function StudioTeam() {
       <h1 className="text-3xl font-bold">Studio Team</h1>
       <div className={`${card} text-sm text-muted-foreground space-y-1`}>
         <p><b className="text-foreground">Owner</b> — everything, incl. deleting stories or the studio.</p>
-        <p><b className="text-foreground">Manager</b> — upload & edit, delete chapters and pages, change page order, add or remove members, post updates.</p>
+        <p><b className="text-foreground">Manager</b> — upload & edit, delete chapters and pages, change page order, add or remove members.</p>
         <p><b className="text-foreground">Can upload & edit</b> — create series, upload chapters, edit details.</p>
         <p><b className="text-foreground">Member</b> — credited on the studio page only.</p>
+        <p className="pt-1"><b className="text-foreground">Community posts</b> are separate from uploading stories. The owner and managers can always post; tick “Can post” for anyone else who should.</p>
       </div>
 
       <div className={card}>
@@ -117,10 +118,16 @@ export function StudioTeam() {
                     <option value="editor">Can upload & edit</option>
                     <option value="member">Member</option>
                   </select>
+                  {m.access !== "manager" && (
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer" title="Can post in Community for the studio">
+                      <input type="checkbox" checked={m.canPost} onChange={e => run(() => api(`/pro/team/${m.id}`, { method: "PATCH", body: { canPost: e.target.checked } }))} data-testid={`canpost-${m.id}`} />
+                      Can post
+                    </label>
+                  )}
                   {(isOwner || m.access !== "manager") && <Button size="icon" variant="ghost" onClick={() => { if (confirm(`Remove ${m.name} from the studio?`)) run(() => api(`/pro/team/${m.id}`, { method: "DELETE" })); }} aria-label="Remove"><X className="w-4 h-4" /></Button>}
                 </>
               ) : (
-                <span className="text-xs px-2 py-0.5 rounded bg-secondary capitalize">{m.role} — {ACCESS_LABEL[m.access] ?? m.access}</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-secondary capitalize">{m.role} — {ACCESS_LABEL[m.access] ?? m.access}{m.canPost && m.access !== "owner" ? " + posts" : ""}</span>
               )}
             </li>
           ))}
@@ -128,7 +135,7 @@ export function StudioTeam() {
       </div>
 
       {isManager && (
-        <form onSubmit={e => { e.preventDefault(); run(() => api("/pro/team", { body: f }).then(() => setF({ name: "", email: "", role: "artist", access: "editor" })), "Invite sent by email"); }} className={`${card} space-y-3`}>
+        <form onSubmit={e => { e.preventDefault(); run(() => api("/pro/team", { body: f }).then(() => setF({ name: "", email: "", role: "artist", access: "editor", canPost: false })), "Invite sent by email"); }} className={`${card} space-y-3`}>
           <h2 className="font-bold">Invite a member</h2>
           <div className="grid sm:grid-cols-2 gap-2">
             <Input required placeholder="Name" value={f.name} onChange={e => setF({ ...f, name: e.target.value })} />
@@ -140,6 +147,12 @@ export function StudioTeam() {
               <option value="member">Member (credit only)</option>
             </select>
           </div>
+          {f.access !== "manager" && (
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={f.canPost} onChange={e => setF({ ...f, canPost: e.target.checked })} />
+              Can post in Community for the studio
+            </label>
+          )}
           <Button type="submit">Send invite</Button>
         </form>
       )}

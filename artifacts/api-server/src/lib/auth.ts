@@ -34,7 +34,7 @@ export const createSessionToken = (userId: number) => signToken({ uid: userId, t
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
-    interface Request { user?: User; creatorStatus?: string; creatorAccess?: Access; creatorType?: string }
+    interface Request { user?: User; creatorStatus?: string; creatorAccess?: Access; creatorType?: string; creatorCanPost?: boolean }
   }
 }
 
@@ -51,11 +51,12 @@ export async function loadUser(req: Request, _res: Response, next: NextFunction)
           const [c] = await db.select({ status: creatorsTable.status, type: creatorsTable.type, ownerUserId: creatorsTable.ownerUserId }).from(creatorsTable).where(eq(creatorsTable.id, user.creatorId));
           req.creatorStatus = c?.status;
           req.creatorType = c?.type;
-          if (c?.ownerUserId === user.id) req.creatorAccess = "owner";
+          if (c?.ownerUserId === user.id) { req.creatorAccess = "owner"; req.creatorCanPost = true; }
           else {
-            const [m] = await db.select({ access: teamMembersTable.access }).from(teamMembersTable)
+            const [m] = await db.select({ access: teamMembersTable.access, canPost: teamMembersTable.canPost }).from(teamMembersTable)
               .where(and(eq(teamMembersTable.creatorId, user.creatorId), eq(teamMembersTable.userId, user.id), eq(teamMembersTable.status, "active")));
             req.creatorAccess = (m?.access as Access | undefined) ?? undefined;
+            req.creatorCanPost = !!m && (m.canPost || m.access === "manager");
             // Removed from the studio: they no longer act as it.
             if (!m) { req.creatorStatus = "not_member"; }
           }

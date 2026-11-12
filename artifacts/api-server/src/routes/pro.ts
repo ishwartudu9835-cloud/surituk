@@ -240,6 +240,7 @@ router.get("/pro/team", requireCreator, async (req, res): Promise<void> => {
   res.json(rows.map(r => ({
     id: r.id, userId: r.userId, name: r.name, role: r.role, status: r.status,
     access: r.userId && r.userId === c?.ownerUserId ? "owner" : r.access,
+    canPost: (r.userId && r.userId === c?.ownerUserId) || r.access === "manager" ? true : r.canPost,
     // Team emails are visible to the owner and managers only (needed to manage invites).
     email: hasAccess(req, "manager") ? r.email : undefined,
     isMe: r.userId === req.user!.id,
@@ -260,7 +261,7 @@ router.post("/pro/team", requireCreator, async (req, res): Promise<void> => {
   if (dup) { res.status(400).json({ error: "This person is already in the team or invited" }); return; }
   const { inviteTeam } = await import("../lib/creatorProgram");
   await inviteTeam(creatorId, c.name, [{ name, email, role }], (req.user!.email ?? "").toLowerCase());
-  await db.update(teamMembersTable).set({ access }).where(and(eq(teamMembersTable.creatorId, creatorId), eq(teamMembersTable.email, email)));
+  await db.update(teamMembersTable).set({ access, canPost: req.body?.canPost === true }).where(and(eq(teamMembersTable.creatorId, creatorId), eq(teamMembersTable.email, email)));
   res.status(201).json({ ok: true });
 });
 
@@ -279,6 +280,7 @@ router.patch("/pro/team/:id", requireCreator, async (req, res): Promise<void> =>
     if ((req.body.access === "manager" || m.access === "manager") && !hasAccess(req, "owner")) { res.status(403).json({ error: "Only the owner can add or remove managers" }); return; }
     patch.access = req.body.access;
   }
+  if (typeof req.body?.canPost === "boolean") patch.canPost = req.body.canPost;
   await db.update(teamMembersTable).set(patch).where(eq(teamMembersTable.id, m.id));
   if (m.userId && patch.access) await notifyUser(m.userId, `Your access in the studio is now: ${patch.access}.`);
   res.json({ ok: true });

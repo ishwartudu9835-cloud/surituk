@@ -128,7 +128,7 @@ export default function CreatorProfile() {
 
         {/* Posts & updates from this creator (also shown in Community) */}
         <div className="flex items-center justify-between gap-3 mb-6">
-          <h2 className="text-2xl font-bold brush-underline">Posts & Updates</h2>
+          <h2 className="text-2xl font-bold brush-underline">Community Posts</h2>
           {isOwner && <NewPostButton compact />}
         </div>
         <div className="mb-12 max-w-3xl">

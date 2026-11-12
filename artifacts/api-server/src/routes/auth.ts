@@ -191,7 +191,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   res.json({
     ...publicUser(u),
     creator: creator ? {
-      access: req.creatorAccess ?? null, themeColor: creator.themeColor, slug: creator.slug,
+      access: req.creatorAccess ?? null, canPost: !!req.creatorCanPost, themeColor: creator.themeColor, slug: creator.slug,
       id: creator.id, name: creator.name, type: creator.type, status: creator.status, studioName: creator.studioName, bio: creator.bio,
       avatar: creator.avatar, banner: creator.banner, city: creator.city, state: creator.state, isVerified: creator.isVerified,
       instagramUrl: creator.instagramUrl, twitterUrl: creator.twitterUrl, youtubeUrl: creator.youtubeUrl, websiteUrl: creator.websiteUrl,

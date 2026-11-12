@@ -99,7 +99,7 @@ export type Me = {
     studioName: string | null; bio: string | null; avatar: string; banner: string | null; city: string | null; state: string | null;
     isVerified: boolean; instagramUrl: string | null; twitterUrl: string | null; youtubeUrl: string | null; websiteUrl: string | null;
     /** My access in this account: owner | manager | editor | member */
-    access: "owner" | "manager" | "editor" | "member" | null; themeColor: string | null; slug: string | null;
+    access: "owner" | "manager" | "editor" | "member" | null; canPost: boolean; themeColor: string | null; slug: string | null;
   } | null;
 };
 

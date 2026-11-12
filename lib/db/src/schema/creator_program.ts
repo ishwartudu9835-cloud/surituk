@@ -50,6 +50,8 @@ export const teamMembersTable = pgTable("team_members", {
   role: text("role").notNull(), // role tag shown on the studio page: owner | artist | writer | editor | colorist | letterer | translator | other
   /** What they can do: owner (everything) | manager (team, delete chapters/pages, reorder) | editor (upload & edit) | member (credit only) */
   access: text("access").notNull().default("editor"),
+  /** Can post in Community for the studio (separate from uploading stories). Owner and managers always can. */
+  canPost: boolean("can_post").notNull().default(false),
   status: text("status").notNull().default("invited"), // invited | active
   inviteToken: text("invite_token").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
