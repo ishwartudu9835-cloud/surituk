@@ -85,11 +85,11 @@ export default function Home() {
                 <h1 className="text-3xl md:text-5xl text-[var(--brand-ink)]">Stories that bind.</h1>
               </div>
               <p className="text-base md:text-lg text-muted-foreground mb-8 max-w-xl">
-                Read graphic novels and manga by Indian creators — in Hindi, English and your own language. Subscribe to artists you love, or publish your own story.
+                Read graphic novels and manga by Indian creators — in Hindi, English and your own language. Subscribe to the artists you love and never miss a new chapter.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button asChild size="lg"><Link href="/browse">Start reading</Link></Button>
-                <Button asChild size="lg" variant="outline"><Link href="/settings?tab=pro">Publish your story</Link></Button>
+                <Button asChild size="lg" variant="outline"><Link href="/community">See the community</Link></Button>
               </div>
             </div>
             <div className="hidden md:block md:col-span-2 rounded-[4px] bg-[var(--brand-haldi)] relative overflow-hidden">

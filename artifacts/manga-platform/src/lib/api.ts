@@ -105,6 +105,11 @@ export type Me = {
 
 const ACCESS_RANK = { member: 0, editor: 1, manager: 2, owner: 3 } as const;
 /** Can I do something that needs `level` in my active creator account? Admins always can. */
+/** True once the person works as an approved creator or studio. Only then do they see Creator Studio links. */
+export function isCreator(me: Me | null | undefined): boolean {
+  return !!me?.creatorId && me.creator?.status === "approved";
+}
+
 export function canDo(me: Me | null | undefined, level: keyof typeof ACCESS_RANK): boolean {
   if (!me) return false;
   if (me.role === "admin") return true;

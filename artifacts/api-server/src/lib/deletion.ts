@@ -15,7 +15,9 @@ import { logger } from "./logger";
  *  - After deletion, only basic registration details are kept for 180 days (IT Rules, 2021 rule 3(1)(h)),
  *    then purged automatically.
  */
-export const COOLING_OFF_DAYS = 7;
+export const COOLING_OFF_DAYS = 10;
+/** A new account can ask to be deleted only this many days after sign-up. */
+export const ACCOUNT_MIN_DAYS = 10;
 export const CREATOR_MIN_DAYS = 15;
 export const KEEP_REGISTRATION_DAYS = 180;
 const DAY = 86_400_000;

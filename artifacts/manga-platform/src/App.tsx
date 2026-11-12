@@ -25,7 +25,7 @@ import Library from "./pages/Library";
 import Admin from "./pages/Admin";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { FEATURES } from "./lib/features";
-import { rememberRef, api } from "./lib/api";
+import { rememberRef, api, isCreator } from "./lib/api";
 import { useQuery } from "@tanstack/react-query";
 import Settings from "./pages/Settings";
 import Onboarding, { OnboardingGate } from "./pages/Onboarding";
@@ -66,9 +66,7 @@ function UserMenu() {
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => navigate("/profile")}><User className="w-4 h-4 mr-2" /> Profile</DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate("/library")}><LibraryIcon className="w-4 h-4 mr-2" /> My Library</DropdownMenuItem>
-        {me.creatorId
-          ? <DropdownMenuItem onClick={() => navigate("/creator-dashboard")}><PenTool className="w-4 h-4 mr-2" /> Creator Studio</DropdownMenuItem>
-          : <DropdownMenuItem onClick={() => navigate("/settings?tab=pro")}><PenTool className="w-4 h-4 mr-2" /> Become a Creator</DropdownMenuItem>}
+        {isCreator(me) && <DropdownMenuItem onClick={() => navigate("/creator-dashboard")}><PenTool className="w-4 h-4 mr-2" /> Creator Studio</DropdownMenuItem>}
         <DropdownMenuItem onClick={() => navigate("/settings")}><SettingsIcon className="w-4 h-4 mr-2" /> Settings</DropdownMenuItem>
         {me.role === "admin" && <DropdownMenuItem onClick={() => navigate("/admin")}><Shield className="w-4 h-4 mr-2" /> Admin</DropdownMenuItem>}
         <DropdownMenuSeparator />
@@ -117,6 +115,11 @@ function Navbar() {
           <Link href="/browse?search=1" className="hidden lg:flex items-center w-40 h-9 px-3 rounded-lg bg-white/5 border border-border text-muted-foreground text-sm gap-2 hover:bg-white/8 transition-colors">
             <Search className="w-3.5 h-3.5 shrink-0" /> Search...
           </Link>
+          {isCreator(me) && (
+            <Link href="/creator-dashboard" className="hidden md:flex items-center gap-1.5 h-9 px-3 rounded-lg border border-primary/40 bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors" data-testid="link-studio">
+              <PenTool className="w-3.5 h-3.5" /> Studio
+            </Link>
+          )}
           {me && (
             <Link href="/profile?tab=notifications" className="relative w-9 h-9 flex items-center justify-center rounded-lg hover:bg-white/5 transition-colors text-muted-foreground hover:text-foreground" aria-label="Notifications">
               <Bell className="w-4 h-4" />
@@ -153,7 +156,7 @@ function Navbar() {
             ...(me ? [
               { href: "/library", label: "My Library" },
               { href: "/profile", label: "My Profile" },
-              { href: me.creatorId ? "/creator-dashboard" : "/settings?tab=pro", label: me.creatorId ? "Creator Studio" : "Become a Creator" },
+              ...(isCreator(me) ? [{ href: "/creator-dashboard", label: "Creator Studio" }] : []),
               { href: "/settings", label: "Settings" },
             ] : [{ href: "/login", label: "Log in / Sign up" }]),
             ...(me?.role === "admin" ? [{ href: "/admin", label: "Admin" }] : []),
@@ -195,11 +198,11 @@ function Footer() {
             </ul>
           </div>
           <div>
-            <h3 className="font-semibold mb-3 text-sm">Creators</h3>
+            <h3 className="font-semibold mb-3 text-sm">Company</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/settings?tab=pro" className="hover:text-primary transition-colors">Become a Creator</Link></li>
-              <li><Link href="/creator-dashboard" className="hover:text-primary transition-colors">Creator Studio</Link></li>
-
+              <li><Link href="/about" className="hover:text-primary transition-colors">About</Link></li>
+              <li><Link href="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
+              <li><Link href="/grievance" className="hover:text-primary transition-colors">Grievance Officer</Link></li>
             </ul>
           </div>
           <div>
@@ -212,15 +215,12 @@ function Footer() {
             </ul>
           </div>
           <div>
-            <h3 className="font-semibold mb-3 text-sm">Company</h3>
+            <h3 className="font-semibold mb-3 text-sm">Legal</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><Link href="/about" className="hover:text-primary transition-colors">About</Link></li>
-              <li><Link href="/contact" className="hover:text-primary transition-colors">Contact</Link></li>
               <li><Link href="/terms" className="hover:text-primary transition-colors">Terms</Link></li>
               <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy</Link></li>
               <li><Link href="/guidelines" className="hover:text-primary transition-colors">Community Guidelines</Link></li>
               <li><Link href="/copyright" className="hover:text-primary transition-colors">Copyright</Link></li>
-              <li><Link href="/grievance" className="hover:text-primary transition-colors">Grievance Officer</Link></li>
             </ul>
           </div>
         </div>

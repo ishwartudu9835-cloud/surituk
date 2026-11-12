@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 type Info = {
-  coolingOffDays: number; creatorMinDays: number;
+  coolingOffDays: number; creatorMinDays: number; accountMinDays: number;
+  account: { deletableFrom: string; canDeleteNow: boolean };
   creator: { id: number; name: string; status: string; deletableFrom: string; canDeleteNow: boolean } | null;
   pending: { id: number; kind: "account" | "creator"; reason: string; requestedAt: string; scheduledFor: string }[];
 };
@@ -105,7 +106,11 @@ export function DeleteAccount() {
           <h2 className="text-xl">Delete your Surituk account</h2>
           {me.role === "admin"
             ? <p className="text-sm text-muted-foreground">Admin accounts can't be deleted. Ask another admin to remove your admin rights first.</p>
-            : <DeleteForm kind="account" info={info} onDone={refresh} />}
+            : info.account.canDeleteNow
+              ? <DeleteForm kind="account" info={info} onDone={refresh} />
+              : <p className="text-sm text-muted-foreground flex gap-2" data-testid="delete-too-new"><ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
+                  New accounts can be deleted {info.accountMinDays} days after sign-up. You can request it from {fmt(info.account.deletableFrom)}.
+                </p>}
         </section>
       )}
 

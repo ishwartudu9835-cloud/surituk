@@ -3,7 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { db, accountDeletionsTable, creatorsTable, usersTable, notificationsTable } from "@workspace/db";
 import { requireAuth, requireAdmin } from "../lib/auth";
 import { audit } from "../lib/creatorProgram";
-import { COOLING_OFF_DAYS, CREATOR_MIN_DAYS, creatorDeletableFrom, notifyAdmins, runAccountDeletion, runCreatorDeletion } from "../lib/deletion";
+import { ACCOUNT_MIN_DAYS, COOLING_OFF_DAYS, CREATOR_MIN_DAYS, creatorDeletableFrom, notifyAdmins, runAccountDeletion, runCreatorDeletion } from "../lib/deletion";
 
 const router: IRouter = Router();
 const DAY = 86_400_000;
@@ -26,8 +26,10 @@ router.get("/me/deletion", requireAuth, async (req, res): Promise<void> => {
     const from = creatorDeletableFrom(c);
     return { id: c.id, name: c.name, status: c.status, deletableFrom: from.toISOString(), canDeleteNow: from.getTime() <= Date.now() };
   })() : null;
+  const accountFrom = new Date(new Date(req.user!.joinedAt).getTime() + ACCOUNT_MIN_DAYS * DAY);
   res.json({
-    coolingOffDays: COOLING_OFF_DAYS, creatorMinDays: CREATOR_MIN_DAYS, creator,
+    coolingOffDays: COOLING_OFF_DAYS, creatorMinDays: CREATOR_MIN_DAYS, accountMinDays: ACCOUNT_MIN_DAYS, creator,
+    account: { deletableFrom: accountFrom.toISOString(), canDeleteNow: accountFrom.getTime() <= Date.now() },
     pending: pending.map(p => ({ id: p.id, kind: p.kind, reason: p.reason, requestedAt: iso(p.requestedAt), scheduledFor: iso(p.scheduledFor) })),
   });
 });
@@ -42,6 +44,13 @@ router.post("/me/deletion", requireAuth, async (req, res): Promise<void> => {
   const [existing] = await db.select({ id: accountDeletionsTable.id, kind: accountDeletionsTable.kind }).from(accountDeletionsTable)
     .where(and(eq(accountDeletionsTable.userId, req.user!.id), eq(accountDeletionsTable.status, "scheduled")));
   if (existing && (existing.kind === kind || existing.kind === "account")) { res.status(409).json({ error: "A deletion is already scheduled. You can cancel it below." }); return; }
+
+  if (kind === "account") {
+    const from = new Date(new Date(req.user!.joinedAt).getTime() + ACCOUNT_MIN_DAYS * DAY);
+    if (from.getTime() > Date.now()) {
+      res.status(400).json({ error: `New accounts can be deleted ${ACCOUNT_MIN_DAYS} days after sign-up. You can request this from ${from.toLocaleDateString("en-IN")}.` }); return;
+    }
+  }
 
   let creatorId: number | null = null;
   let creatorName = "";

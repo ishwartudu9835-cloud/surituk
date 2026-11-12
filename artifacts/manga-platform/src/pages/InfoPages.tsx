@@ -58,7 +58,7 @@ const PAGES: Record<string, Page> = {
       ]) },
       { title: "Your account", body: ul([
         "Sign in with email or Google. Keep access to your email secure — you're responsible for activity on your account.",
-        "You can delete your account any time from Settings → Account. Deletion happens after a 7-day cooling-off period so you can change your mind.",
+        "You can delete your account from Settings → Account once it is at least 10 days old. Deletion happens after a 10-day cooling-off period so you can change your mind.",
       ]) },
       { title: "Creator accounts", body: ul([
         "Creator and studio accounts are reviewed before they can publish.",
@@ -100,7 +100,7 @@ const PAGES: Record<string, Page> = {
         "Nominate someone to exercise these rights for you in case of death or incapacity — write to the Grievance Officer.",
       ]) },
       { title: "Deleting your account", body: ul([
-        "Ask in Settings → Account and tell us why. Deletion runs after a 7-day cooling-off period; we remind you 48 hours before. You can cancel until then.",
+        "Ask in Settings → Account and tell us why. Your account must be at least 10 days old. Deletion runs after a 10-day cooling-off period; we remind you 48 hours before. You can cancel until then.",
         "Your profile, library, history, likes, votes and ratings are erased. Comments stay as “Deleted user”.",
         "We keep basic sign-up details for 180 days after deletion, as Rule 3(1)(h) of the IT Rules, 2021 requires, then erase them. Security logs are kept for up to one year where the DPDP Rules require it.",
         "A deletion may be put on hold if there's an open legal or copyright complaint about the account.",

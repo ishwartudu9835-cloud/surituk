@@ -589,8 +589,8 @@ export default function CreatorDashboard() {
   if (!me.creatorId) return (
     <div className="container px-4 py-20 text-center max-w-lg">
       <h1 className="text-3xl font-bold mb-3">Creator Studio</h1>
-      <p className="text-muted-foreground mb-6">Creator Studio opens after your Professional Account is approved. Apply as an Individual Creator or a Studio — review takes 3–7 days.</p>
-      <Button asChild><Link href="/settings?tab=pro">Apply for Creator</Link></Button>
+      <p className="text-muted-foreground mb-6">This area is only for approved creators and studios.</p>
+      <Button asChild><Link href="/">Back to reading</Link></Button>
     </div>
   );
   if (status === "suspended" || status === "banned" || status === "revoked") return (

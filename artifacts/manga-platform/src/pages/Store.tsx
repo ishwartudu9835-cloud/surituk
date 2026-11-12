@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, BookOpen, Package, Store as StoreIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, rupees, type Product } from "@/lib/api";
+import { api, rupees, isCreator, type Product } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 export function priceLine(p: Product) {
@@ -31,10 +31,10 @@ export default function Store() {
           <h1 className="text-4xl md:text-5xl font-bold">Buy books from creators</h1>
           <p className="text-muted-foreground mt-2 max-w-xl">eBooks unlock instantly. Print copies ship straight from the creator. Most of every sale goes to the artist.</p>
         </div>
-        <Link href={me?.creatorId ? "/creator-dashboard?tab=store" : me ? "/creator-dashboard" : "/login?next=/creator-dashboard"}
+        {isCreator(me) && <Link href="/creator-dashboard?tab=store"
           className="inline-flex items-center gap-2 h-11 px-5 rounded-lg border border-primary/40 bg-primary/10 text-primary font-medium hover:bg-primary/20 transition-colors shrink-0">
           <StoreIcon className="w-4 h-4" /> Sell your book
-        </Link>
+        </Link>}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-8">

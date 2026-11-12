@@ -2,7 +2,7 @@ import { useParams, Link, Redirect } from "wouter";
 import { ReportButton } from "@/components/ReportButton";
 import { mangaHref, userHref } from "@/lib/links";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, isCreator } from "@/lib/api";
 import { useGetUser, useGetUserReadingHistory, useGetUserBookmarks, useGetUserRewards, useGetUserNotifications, getGetUserQueryKey, getGetUserReadingHistoryQueryKey, getGetUserBookmarksQueryKey, getGetUserRewardsQueryKey, getGetUserNotificationsQueryKey } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -97,9 +97,7 @@ export default function UserProfile() {
         {isOwn && (
           <div className="flex gap-2 shrink-0">
             <Button asChild variant="outline"><Link href="/settings"><SettingsIcon className="w-4 h-4 mr-2" /> Settings</Link></Button>
-            {me?.creatorId
-              ? <Button asChild><Link href="/creator-dashboard"><PenTool className="w-4 h-4 mr-2" /> Creator Studio</Link></Button>
-              : <Button asChild><Link href="/settings?tab=pro"><PenTool className="w-4 h-4 mr-2" /> Apply for Creator</Link></Button>}
+            {isCreator(me) && <Button asChild><Link href="/creator-dashboard"><PenTool className="w-4 h-4 mr-2" /> Creator Studio</Link></Button>}
           </div>
         )}
       </motion.div>
@@ -123,11 +121,11 @@ export default function UserProfile() {
 
       {isOwn && (
       <Tabs defaultValue={tabParam === "notifications" && isOwn ? "notifications" : "history"}>
-        <TabsList className={`border border-white/10 bg-card/30 mb-6 h-auto w-full sm:w-max grid grid-cols-2 sm:inline-flex gap-1`}>
+        <TabsList className={`border border-white/10 bg-card/30 mb-6 h-auto w-full sm:w-max grid ${isCreator(me) ? "grid-cols-2" : "grid-cols-3"} sm:inline-flex gap-1`}>
           <TabsTrigger value="history" className="flex items-center gap-2" data-testid="tab-history"><BookOpen className="w-4 h-4" /> History</TabsTrigger>
           <TabsTrigger value="bookmarks" className="flex items-center gap-2" data-testid="tab-bookmarks"><Bookmark className="w-4 h-4" /> Bookmarks</TabsTrigger>
           {isOwn && <TabsTrigger value="notifications" className="flex items-center gap-2" data-testid="tab-notifications"><Bell className="w-4 h-4" /> Notifications</TabsTrigger>}
-          {isOwn && <TabsTrigger value="studio" className="flex items-center gap-2"><PenTool className="w-4 h-4" /> Creator Studio</TabsTrigger>}
+          {isOwn && isCreator(me) && <TabsTrigger value="studio" className="flex items-center gap-2"><PenTool className="w-4 h-4" /> Creator Studio</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="history">
@@ -182,7 +180,7 @@ export default function UserProfile() {
             ))}
           </div>
         </TabsContent>
-        {isOwn && (
+        {isOwn && isCreator(me) && (
           <TabsContent value="studio">
             <div className="rounded-2xl border border-border bg-card/40 p-6">
               <h2 className="text-xl font-bold mb-1">Creator Studio</h2>
@@ -205,9 +203,7 @@ export default function UserProfile() {
                     </Link>
                   ))}
                 </div>
-              ) : (
-                <Button asChild><Link href="/settings?tab=pro">Apply for Creator</Link></Button>
-              )}
+              ) : null}
             </div>
           </TabsContent>
         )}

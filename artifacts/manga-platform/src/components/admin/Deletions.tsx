@@ -23,7 +23,7 @@ export function Deletions() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground max-w-2xl">
-        People who asked to delete their account. Deletion runs automatically after the 7-day cooling-off period (creators can only ask 15 days after approval).
+        People who asked to delete their account. Deletion runs automatically after the 10-day cooling-off period (accounts can ask 10 days after sign-up; creators can only ask 15 days after approval).
         Put a request on hold if there's an open legal or copyright matter.
       </p>
       <Filters value={status} onChange={setStatus} options={[["scheduled", "Scheduled"], ["completed", "Deleted"], ["cancelled", "Cancelled / on hold"], ["all", "All"]]} />

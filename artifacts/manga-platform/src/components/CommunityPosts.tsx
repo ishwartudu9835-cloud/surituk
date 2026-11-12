@@ -441,5 +441,5 @@ export function NewPostButton({ compact = false }: { compact?: boolean }) {
   );
   if (compact) return null;
   if (!me) return <Button asChild variant="outline"><Link href="/login?next=/community">Log in to join in</Link></Button>;
-  return <Button asChild variant="outline" size="sm"><Link href="/settings?tab=pro"><PenTool className="w-4 h-4 mr-2" /> Become a creator to post</Link></Button>;
+  return null;
 }
